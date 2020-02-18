@@ -1,0 +1,32 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "Networking Setup - CSYE 6225 Spring 2020",
+	"Parameters": {
+		"cidrBlock": {
+			"Type": "String",
+			"Description": "Enter CIDR Block."
+		}
+	},
+	"Resources": {
+		"csye6225VPC": {
+			"Type": "AWS::EC2::VPC",
+			"Properties": {
+				"CidrBlock": {
+					"Ref": "cidrBlock"
+				},
+				"Tags": [{
+					"Key": "Name",
+					"Value": "csye6225-vpc"
+				}]
+			}
+		}
+	},
+	"Outputs": {
+		"VPCId": {
+			"Description": "VPC Id of the newly created VPC",
+			"Value": {
+				"Ref": "csye6225VPC"
+			}
+		}
+	}
+}

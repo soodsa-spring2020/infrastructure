@@ -85,6 +85,7 @@
 						]
 					]
 				},
+				"MapPublicIpOnLaunch" : true,
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
@@ -126,6 +127,7 @@
 						]
 					]
 				},
+				"MapPublicIpOnLaunch" : true,
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
@@ -167,6 +169,7 @@
 						]
 					]
 				},
+				"MapPublicIpOnLaunch" : true,
 				"Tags": [{
 					"Key": "Name",
 					"Value": {

@@ -30,6 +30,29 @@
 		"RDSInstanceIdentifier" : {
 			"Type": "String",
 			"Default" : "csye6225-spring2020"
+		},
+		"RDSAllocatedStorage" : {
+			"Type": "String",
+			"Default" : 20
+		},
+		"RDSPubliclyAccessible": {
+			"Type": "String",
+			"Default" : "false"
+		},
+		"EC2KeyName" : {
+			"Type": "AWS::EC2::KeyPair::KeyName"
+		},
+		"EC2AmiId" : {
+			"Type": "String",
+			"Default" : "ami-07ebfd5b3428b6f4d"
+		},
+		"EC2InstanceClass" :{
+			"Type": "String",
+			"Default" : "t2.micro"
+		},
+		"EC2SubnetChoice" : {
+			"Type": "Number",
+			"Default" : "0"
 		}
 	},
 	"Resources": {
@@ -430,7 +453,9 @@
 			"Type": "AWS::RDS::DBInstance",
 			"Properties": {
 				"Engine": "postgres",
-				"AllocatedStorage" : 20,
+				"AllocatedStorage" : {
+					"Ref": "RDSAllocatedStorage"
+				},
 				"MultiAZ" : false,
 				"DBInstanceClass": {
 					"Ref": "RDSInstanceClass"
@@ -450,9 +475,83 @@
 				"VPCSecurityGroups" : [{
 					"Ref": "RDSSecurityGroup"
 				}],
-				"PubliclyAccessible": "false"
+				"PubliclyAccessible": {
+					"Ref": "RDSPubliclyAccessible"
+				}
 			},
 			"DependsOn" : ["RDSSecurityGroup", "RDSSubnetGroup"]
+		},
+		"EC2Instance": {
+			"Type": "AWS::EC2::Instance",	
+			"Properties": {
+				"IamInstanceProfile" : {
+					"Ref": "EC2S3InstanceProfile"
+				},
+				"ImageId": {
+					"Ref": "EC2AmiId"
+				},
+				"InstanceType": {
+					"Ref": "EC2InstanceClass"
+				},
+				"BlockDeviceMappings" : [{
+					"DeviceName" : "/dev/sda1",
+					"Ebs" : {
+						"VolumeType" : "gp2",
+						"DeleteOnTermination" : true,
+						"VolumeSize" : "20"
+					}
+				}],
+				"KeyName": {
+					"Ref": "EC2KeyName"
+				},
+				"SecurityGroupIds" : [{	
+					"Ref" : "EC2SecurityGroup"
+				}],
+				"SubnetId" : {
+					"Fn::Select": [{"Ref": "EC2SubnetChoice" }, [
+							{"Ref": "PublicSubnet1" },
+							{"Ref": "PublicSubnet2" },
+							{"Ref": "PublicSubnet3" }
+						]
+					]
+				},
+				"UserData": {
+					"Fn::Base64": {
+					  "Fn::Join": [
+						"\n",
+						[
+						  "#!/bin/bash -xe ",
+						  "cd /usr/lib/systemd/system",
+						  "touch tomcat.service",
+						  "echo '[Unit]' > tomcat.service",
+						  "echo 'Description=Apache Tomcat Web Application Container' >> tomcat.service",
+						  "echo 'After=syslog.target network.target' >> tomcat.service",
+						  "echo '[Service]' >> tomcat.service",
+						  "echo 'Type=forking' >> tomcat.service",
+						  "echo 'Environment=JAVA_HOME=/usr/lib/jvm/jre' >> tomcat.service",
+						  "echo 'Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid' >> tomcat.service",
+						  "echo 'Environment=CATALINA_HOME=/opt/tomcat' >> tomcat.service",
+						  "echo 'Environment=CATALINA_BASE=/opt/tomcat' >> tomcat.service",
+						  "echo 'Environment=\"CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC\"' >> tomcat.service",
+						  "echo 'Environment=\"JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom\"' >> tomcat.service",
+						  "echo 'ExecStart=/opt/tomcat/bin/startup.sh' >> tomcat.service",
+						  "echo 'ExecStop=/bin/kill -15 $MAINPID' >> tomcat.service",
+						  "echo 'User=tomcat' >> tomcat.service",
+						  "echo 'Group=tomcat' >> tomcat.service",
+						  "echo 'UMask=0007' >> tomcat.service",
+						  "echo 'RestartSec=10' >> tomcat.service",
+						  "echo 'Restart=always' >> tomcat.service",
+						  "echo '[Install]' >> tomcat.service",
+						  "echo 'WantedBy=multi-user.target' >> tomcat.service",
+						  "systemctl daemon-reload",
+						  "systemctl enable tomcat.service",
+						  "systemctl start tomcat.service"
+						]
+					  ]
+					}
+				}
+			},
+			"DependsOn" : ["RDSDBInstance", "EC2S3InstanceProfile", "EC2SecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
 		}
 	},
 	"Outputs": {

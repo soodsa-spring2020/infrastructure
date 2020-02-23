@@ -13,51 +13,47 @@
 		"SubnetAvailabilityZones": {
 			"Type": "String",
 			"Description": "The public subnet Availability Zones"
+		},
+		"RDSUser" : {
+			"Type": "String"
+		},
+		"RDSPassword" : {
+			"Type": "String"
+		},
+		"RDSName" : {
+			"Type": "String"
+		},
+		"RDSInstanceClass" : {
+			"Type": "String",
+			"Default" : "db.t3.micro"
+		},
+		"RDSInstanceIdentifier" : {
+			"Type": "String",
+			"Default" : "csye6225-spring2020"
 		}
 	},
 	"Resources": {
-		"VPC": {
+		"ApiVPC": {
 			"Type": "AWS::EC2::VPC",
 			"Properties": {
+				"EnableDnsSupport" : true, 
+				"EnableDnsHostnames": true,
 				"CidrBlock": {
 					"Ref": "VpcCIDR"
 				},
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}VPC"
+						"Fn::Sub": "${AWS::StackName} VPC"
 					}
 				}]
 			}
-		},
-		"InternetGateway": {
-			"Type": "AWS::EC2::InternetGateway",
-			"Properties": {
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Sub": "${AWS::StackName}IG"
-					}
-				}]
-			}
-		},
-		"InternetGatewayAttachment": {
-			"Type": "AWS::EC2::VPCGatewayAttachment",
-			"Properties": {
-				"InternetGatewayId": {
-					"Ref": "InternetGateway"
-				},
-				"VpcId": {
-					"Ref": "VPC"
-				}
-			},
-			"DependsOn": ["VPC", "InternetGateway"]
 		},
 		"PublicSubnet1": {
 			"Type": "AWS::EC2::Subnet",
 			"Properties": {
 				"VpcId": {
-					"Ref": "VPC"
+					"Ref": "ApiVPC"
 				},
 				"CidrBlock": {
 					"Fn::Select": ["0",
@@ -89,17 +85,17 @@
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}Subnet1"
+						"Fn::Sub": "${AWS::StackName} Subnet1"
 					}
 				}]
 			},
-			"DependsOn": "VPC"
+			"DependsOn" : ["ApiVPC"]
 		},
 		"PublicSubnet2": {
 			"Type": "AWS::EC2::Subnet",
 			"Properties": {
 				"VpcId": {
-					"Ref": "VPC"
+					"Ref": "ApiVPC"
 				},
 				"CidrBlock": {
 					"Fn::Select": ["1",
@@ -131,17 +127,17 @@
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}Subnet2"
+						"Fn::Sub": "${AWS::StackName} Subnet2"
 					}
 				}]
 			},
-			"DependsOn": "VPC"
+			"DependsOn" : ["ApiVPC"]
 		},
 		"PublicSubnet3": {
 			"Type": "AWS::EC2::Subnet",
 			"Properties": {
 				"VpcId": {
-					"Ref": "VPC"
+					"Ref": "ApiVPC"
 				},
 				"CidrBlock": {
 					"Fn::Select": ["2",
@@ -173,82 +169,297 @@
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}Subnet3"
+						"Fn::Sub": "${AWS::StackName} Subnet3"
 					}
 				}]
 			},
-			"DependsOn": "VPC"
+			"DependsOn" : ["ApiVPC"]
 		},
-		"RouteTable": {
+		"IGW": {
+			"Type": "AWS::EC2::InternetGateway",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Sub": "${AWS::StackName} IG"
+					}
+				}]
+			},
+			"DependsOn" : ["ApiVPC"]
+		},
+		"VPCGatewayAttachment": {
+			"Type": "AWS::EC2::VPCGatewayAttachment",
+			"Properties": {
+				"InternetGatewayId": {
+					"Ref": "IGW"
+				},
+				"VpcId": {
+					"Ref": "ApiVPC"
+				}
+			},
+			"DependsOn" : ["ApiVPC", "IGW"]
+		},
+		"PublicSubnetRouteTable": {
 			"Type": "AWS::EC2::RouteTable",
 			"Properties": {
 				"VpcId": {
-					"Ref": "VPC"
+					"Ref": "ApiVPC"
 				},
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}RouteTable"
+						"Fn::Sub": "${AWS::StackName} RouteTable"
 					}
 				}]
 			},
-			"DependsOn": "VPC"
+			"DependsOn" : ["ApiVPC"]
 		},
-		"Route": {
+		"PublicSubnetRoute": {
 			"Type": "AWS::EC2::Route",
 			"Properties": {
 				"RouteTableId": {
-					"Ref": "RouteTable"
+					"Ref": "PublicSubnetRouteTable"
 				},
 				"DestinationCidrBlock": "0.0.0.0/0",
 				"GatewayId": {
-					"Ref": "InternetGateway"
+					"Ref": "IGW"
 				}
 			},
-			"DependsOn": ["RouteTable","InternetGateway"]
+			"DependsOn" : ["IGW", "PublicSubnetRouteTable"]
 		},
-		"Subnet1RouteTableAssociation": {
+		"PublicSubnet1RouteTableAssociation": {
 			"Type": "AWS::EC2::SubnetRouteTableAssociation",
 			"Properties": {
 				"SubnetId": {
 					"Ref": "PublicSubnet1"
 				},
 				"RouteTableId": {
-					"Ref": "RouteTable"
+					"Ref": "PublicSubnetRouteTable"
 				}
 			},
-			"DependsOn": ["RouteTable","PublicSubnet1"]
+			"DependsOn" : ["PublicSubnet1", "PublicSubnetRouteTable"]
 		},
-		"Subnet2RouteTableAssociation": {
+		"PublicSubnet2RouteTableAssociation": {
 			"Type": "AWS::EC2::SubnetRouteTableAssociation",
 			"Properties": {
 				"SubnetId": {
 					"Ref": "PublicSubnet2"
 				},
 				"RouteTableId": {
-					"Ref": "RouteTable"
+					"Ref": "PublicSubnetRouteTable"
 				}
 			},
-			"DependsOn": ["RouteTable","PublicSubnet2"]
+			"DependsOn" : ["PublicSubnet2", "PublicSubnetRouteTable"]
 		},
-		"Subnet3RouteTableAssociation": {
+		"PublicSubnet3RouteTableAssociation": {
 			"Type": "AWS::EC2::SubnetRouteTableAssociation",
 			"Properties": {
 				"SubnetId": {
 					"Ref": "PublicSubnet3"
 				},
 				"RouteTableId": {
-					"Ref": "RouteTable"
+					"Ref": "PublicSubnetRouteTable"
 				}
 			},
-			"DependsOn": ["RouteTable","PublicSubnet3"]
+			"DependsOn" : ["PublicSubnet3", "PublicSubnetRouteTable"]
+		},
+		"EC2S3Role" : {
+			"Type" : "AWS::IAM::Role",
+			"Properties" : {
+				"RoleName" : "EC2-CSYE6225",
+				"AssumeRolePolicyDocument" : {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                }
+			}
+		},
+		"EC2S3Policy" : {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "WebAppS3",
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Action": [
+								"s3:PutObject",
+								"s3:GetObject",
+								"s3:DeleteObject"
+							],
+							"Resource": [ 
+								{
+									"Fn::GetAtt": ["S3Bucket", "Arn"]
+								},
+								{
+									"Fn::Join": [ 
+										"", [ { "Fn::GetAtt" : ["S3Bucket", "Arn"] }, "/*" ]
+									]
+								}
+							]
+						}
+					]
+				},
+				"Roles": [{
+					"Ref": "EC2S3Role"
+				}]
+			},
+			"DependsOn" : ["EC2S3Role"]
+		},
+		"EC2S3InstanceProfile" : {
+			"Type" : "AWS::IAM::InstanceProfile",
+			"Properties" : {
+				"Roles" : [{
+					"Ref": "EC2S3Role"
+				}]
+			},
+			"DependsOn" : ["EC2S3Role"]
+		},
+		"EC2SecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupName": "application",
+				"GroupDescription": "Access to the EC2 Instance",
+				"VpcId": {
+					"Ref": "ApiVPC"
+				},
+				"SecurityGroupIngress": [
+					{
+						"CidrIp": "0.0.0.0/0",
+						"IpProtocol": "tcp",
+						"FromPort": 22,
+						"ToPort": 22
+					},
+					{
+						"CidrIp": "0.0.0.0/0",
+						"IpProtocol": "tcp",
+						"FromPort": 80,
+						"ToPort": 80
+					},
+					{
+						"CidrIp": "0.0.0.0/0",
+						"IpProtocol": "tcp",
+						"FromPort": 443,
+						"ToPort": 443
+					}
+				]
+			},
+			"DependsOn" : ["ApiVPC"]
+		},
+		"RDSSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupName": "database",
+				"GroupDescription": "Access to the RDS",
+				"VpcId": {
+					"Ref": "ApiVPC"
+				},
+				"SecurityGroupIngress": [
+					{
+						"CidrIp": "0.0.0.0/0",
+						"IpProtocol": "tcp",
+						"FromPort": 5432,
+						"ToPort": 5432
+					}
+				]
+			},
+			"DependsOn" : ["ApiVPC"]
+		},
+		"S3Bucket": {
+			"Type" : "AWS::S3::Bucket",
+			"Properties": {
+				"AccessControl" : "Private",
+				"BucketEncryption" : {
+					"ServerSideEncryptionConfiguration": [{
+					"ServerSideEncryptionByDefault": {
+						"SSEAlgorithm": "AES256"
+					}
+					}]
+				},
+				"LifecycleConfiguration": {
+					"Rules": [
+						{
+							"Id": "StorageIARule",
+							"Status": "Enabled",
+							"Transitions": [
+								{
+									"TransitionInDays": "30",
+									"StorageClass": "STANDARD_IA"
+								}
+							]
+						}
+					]
+				}
+			},
+			"DeletionPolicy": "Delete"
+		},
+		"RDSSubnetGroup" : {
+			"Type" : "AWS::RDS::DBSubnetGroup",
+			"Properties" : {
+				"DBSubnetGroupDescription" : "RDS Subnet group for Aurora Serverless",
+				"DBSubnetGroupName" : {
+					"Fn::Sub": "${AWS::StackName}-aurora-subnet-group"
+				},
+				"SubnetIds" : [ 
+					{ "Ref": "PublicSubnet1"},
+					{ "Ref": "PublicSubnet2"},
+					{ "Ref": "PublicSubnet3"}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Sub": "${AWS::StackName} RDS Subnet Group"
+					}
+				}]
+			},
+			"DependsOn" : ["PublicSubnet1", "PublicSubnet2","PublicSubnet3"]
+		},
+		"RDSDBInstance": {
+			"Type": "AWS::RDS::DBInstance",
+			"Properties": {
+				"Engine": "postgres",
+				"AllocatedStorage" : 20,
+				"MultiAZ" : false,
+				"DBInstanceClass": {
+					"Ref": "RDSInstanceClass"
+				},
+				"DBInstanceIdentifier": {
+					"Ref": "RDSInstanceIdentifier"
+				},
+				"MasterUsername": {
+					"Ref": "RDSUser"
+				},
+				"MasterUserPassword": {
+					"Ref": "RDSPassword"
+				},
+				"DBSubnetGroupName": {
+					"Ref": "RDSSubnetGroup"
+				},
+				"VPCSecurityGroups" : [{
+					"Ref": "RDSSecurityGroup"
+				}],
+				"PubliclyAccessible": "false"
+			},
+			"DependsOn" : ["RDSSecurityGroup", "RDSSubnetGroup"]
 		}
 	},
 	"Outputs": {
 		"VPCId": {
 			"Description": "VPC Id of the newly created VPC",
 			"Value": {
-				"Ref": "VPC"
+				"Ref": "ApiVPC"
 			}
 		}
 	}

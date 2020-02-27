@@ -53,6 +53,22 @@
 		"EC2SubnetChoice": {
 			"Type": "Number",
 			"Default": "0"
+		},
+		"EC2VolumeType" : {
+			"Type": "String",
+			"Default": "gp2"
+		},
+		"EC2DeviceName" : {
+			"Type": "String",
+			"Default": "/dev/sda1"
+		},
+		"EC2DeleteOnTermination" : {
+			"Type": "String",
+			"Default": "true"
+		},
+		"EC2VolumeSize" : {
+			"Type": "Number",
+			"Default": "20"
 		}
 	},
 	"Resources": {
@@ -521,11 +537,19 @@
 					"Ref": "EC2InstanceClass"
 				},
 				"BlockDeviceMappings": [{
-					"DeviceName": "/dev/sda1",
+					"DeviceName": {
+						"Ref": "EC2DeviceName"
+					},
 					"Ebs": {
-						"VolumeType": "gp2",
-						"DeleteOnTermination": true,
-						"VolumeSize": "20"
+						"VolumeType": {
+							"Ref": "EC2VolumeType"
+						},
+						"DeleteOnTermination":  {
+							"Ref": "EC2DeleteOnTermination"
+						},
+						"VolumeSize": {
+							"Ref": "EC2VolumeSize"
+						}
 					}
 				}],
 				"KeyName": {

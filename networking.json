@@ -511,7 +511,10 @@
 				"DBInstanceIdentifier": {
 					"Fn::Join": [
 						"-",
-						["${AWS::StackName}",
+						[
+							{
+								"Fn::Sub": "${AWS::StackName}"
+							},
 							{
 								"Ref": "RDSInstanceIdentifier"
 							}

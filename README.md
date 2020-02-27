@@ -4,7 +4,7 @@ Setting up the networking resources such as Virtual Private Cloud (VPC), Interne
 
 ## Setup
 
-Create a ```networking.json``` file to setup the network resources using the below parameters.
+Create a ```networking.json``` file to setup the network resources using the parameters as specified in the json.
 
 ```json
 [
@@ -28,17 +28,22 @@ Create a ```networking.json``` file to setup the network resources using the bel
 ### Create Stack
 
 ```bash
-aws cloudformation --profile PROFILE_NAME create-stack \
-  --stack-name STACK_NAME \
-  --parameters file://vars.json \
-  --template-body file://networking.json
+aws cloudformation --profile <PROFILE_NAME> create-stack \
+  --stack-name <STACK_NAME> \
+  --parameters file://vars-local.json \
+  --template-body file://networking.json \
+  --region <Region>  \
+  --capabilities CAPABILITY_NAMED_IAM
 ```
 
 ### Delete Stack
 
 ```bash
-aws cloudformation --profile PROFILE_NAME delete-stack \
-  --stack-name STACK_NAME 
+aws s3 --profile <PROFILE_NAME> rm s3://{BUCKET_NAME} --recursive
+
+aws cloudformation --profile <PROFILE_NAME> delete-stack \
+  --stack-name <STACK_NAME> \
+  --region <Region> 
 ```
 
 ## License

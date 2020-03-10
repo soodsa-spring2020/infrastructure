@@ -379,96 +379,6 @@
 			},
 			"DependsOn": ["ApiVPC", "EC2SecurityGroup"]
 		},
-		"S3Bucket": {
-			"Type": "AWS::S3::Bucket",
-			"Properties": {
-				"AccessControl": "Private",
-				"BucketEncryption": {
-					"ServerSideEncryptionConfiguration": [{
-						"ServerSideEncryptionByDefault": {
-							"SSEAlgorithm": "AES256"
-						}
-					}]
-				},
-				"LifecycleConfiguration": {
-					"Rules": [{
-						"Id": "StorageIARule",
-						"Status": "Enabled",
-						"Transitions": [{
-							"TransitionInDays": "30",
-							"StorageClass": "STANDARD_IA"
-						}]
-					}]
-				}
-			},
-			"DeletionPolicy": "Delete"
-		},
-		"EC2S3Role": {
-			"Type": "AWS::IAM::Role",
-			"Properties": {
-				"RoleName": {
-					"Fn::Sub": "${AWS::StackName}-EC2-CSYE6225"
-				},
-				"AssumeRolePolicyDocument": {
-					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Principal": {
-							"Service": [
-								"ec2.amazonaws.com"
-							]
-						},
-						"Action": [
-							"sts:AssumeRole"
-						]
-					}]
-				}
-			}
-		},
-		"EC2S3Policy": {
-			"Type": "AWS::IAM::Policy",
-			"Properties": {
-				"PolicyName": {
-					"Fn::Sub": "${AWS::StackName}-WebAppS3"
-				},
-				"PolicyDocument": {
-					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Action": [
-							"s3:PutObject",
-							"s3:GetObject",
-							"s3:DeleteObject",
-							"s3:ListBucket"
-						],
-						"Resource": [{
-								"Fn::GetAtt": ["S3Bucket", "Arn"]
-							},
-							{
-								"Fn::Join": [
-									"", [{
-										"Fn::GetAtt": ["S3Bucket", "Arn"]
-									}, "/*"]
-								]
-							}
-						]
-					}]
-				},
-				"Roles": [{
-					"Ref": "EC2S3Role"
-				}]
-			},
-			"DependsOn": ["S3Bucket", "EC2S3Role"]
-		},
-		"EC2S3InstanceProfile": {
-			"Type": "AWS::IAM::InstanceProfile",
-			"Properties": {
-				"Roles": [{
-					"Ref": "EC2S3Role"
-				}]
-			},
-			"DependsOn": "EC2S3Role"
-		},
 		"RDSSubnetGroup": {
 			"Type": "AWS::RDS::DBSubnetGroup",
 			"Properties": {
@@ -511,8 +421,7 @@
 				"DBInstanceIdentifier": {
 					"Fn::Join": [
 						"-",
-						[
-							{
+						[{
 								"Fn::Sub": "${AWS::StackName}"
 							},
 							{
@@ -548,6 +457,204 @@
 				}]
 			},
 			"DependsOn": ["RDSSubnetGroup", "RDSSecurityGroup"]
+		},
+		"S3Bucket": {
+			"Type": "AWS::S3::Bucket",
+			"Properties": {
+				"AccessControl": "Private",
+				"BucketEncryption": {
+					"ServerSideEncryptionConfiguration": [{
+						"ServerSideEncryptionByDefault": {
+							"SSEAlgorithm": "AES256"
+						}
+					}]
+				},
+				"LifecycleConfiguration": {
+					"Rules": [{
+						"Id": "StorageIARule",
+						"Status": "Enabled",
+						"Transitions": [{
+							"TransitionInDays": "30",
+							"StorageClass": "STANDARD_IA"
+						}]
+					}]
+				}
+			},
+			"DeletionPolicy": "Delete"
+		},
+		"CodeDeployEC2S3Policy": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": {
+					"Fn::Sub": "${AWS::StackName}-CodeDeploy-EC2-S3"
+				},
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Sid": "VisualEditor0",
+						"Effect": "Allow",
+						"Action": [
+							"s3:GetObject",
+							"s3:ListBucket"
+						],
+						"Resource": [
+							"arn:aws:s3:::codedeploy.sajalsood.me",
+							"arn:aws:s3:::codedeploy.sajalsood.me/*"
+						]
+					},
+					{
+						"Effect": "Allow",
+						"Action": [
+							"s3:PutObject",
+							"s3:GetObject",
+							"s3:DeleteObject",
+							"s3:ListBucket"
+						],
+						"Resource": [{
+								"Fn::GetAtt": ["S3Bucket", "Arn"]
+							},
+							{
+								"Fn::Join": [
+									"", [{
+										"Fn::GetAtt": ["S3Bucket", "Arn"]
+									}, "/*"]
+								]
+							}
+						]
+					}]
+				},
+				"Roles": [{
+					"Ref": "CodeDeployEC2ServiceRole"
+				}]
+			},
+			"DependsOn": ["S3Bucket", "CodeDeployEC2ServiceRole"]
+		},
+		"CircleCIUploadToS3Policy": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": {
+					"Fn::Sub": "${AWS::StackName}-CircleCI-Upload-To-S3"
+				},
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Sid": "VisualEditor0",
+						"Effect": "Allow",
+						"Action": [
+							"s3:PutObject",
+							"s3:GetObject",
+							"s3:ListBucket"
+						],
+						"Resource": [
+							"arn:aws:s3:::codedeploy.sajalsood.me",
+							"arn:aws:s3:::codedeploy.sajalsood.me/*"
+						]
+					}]
+				},
+				"Users": ["circleci"]
+			}
+		},
+		"CircleCICodeDeployPolicy": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": {
+					"Fn::Sub": "${AWS::StackName}-CircleCI-Code-Deploy"
+				},
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+							"Effect": "Allow",
+							"Action": [
+								"codedeploy:GetApplicationRevision",
+								"codedeploy:RegisterApplicationRevision"
+							],
+							"Resource": [
+								"arn:aws:codedeploy:us-east-1:716807557558:application:csye6225-webapp"
+							]
+						},
+						{
+							"Effect": "Allow",
+							"Action": [
+								"codedeploy:CreateDeployment",
+								"codedeploy:GetDeployment"
+							],
+							"Resource": [
+								"*"
+							]
+						},
+						{
+							"Effect": "Allow",
+							"Action": [
+								"codedeploy:GetDeploymentConfig"
+							],
+							"Resource": [
+								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.OneAtATime",
+								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.HalfAtATime",
+								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.AllAtOnce"
+							]
+						}
+					]
+				},
+				"Users": ["circleci"]
+			}
+		},
+		"CodeDeployEC2ServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"RoleName": {
+					"Fn::Sub": "${AWS::StackName}-CodeDeployEC2ServiceRole"
+				},
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": [
+								"ec2.amazonaws.com"
+							]
+						},
+						"Action": [
+							"sts:AssumeRole"
+						]
+					}]
+				}
+			}
+		},
+		"CodeDeployServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"RoleName": {
+					"Fn::Sub": "${AWS::StackName}-CodeDeployServiceRole"
+				},
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": [
+								"codedeploy.amazonaws.com"
+							]
+						},
+						"Action": [
+							"sts:AssumeRole"
+						]
+					}]
+				},
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+				]
+			}
+		},
+		"EC2S3InstanceProfile": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Roles": [
+					{
+						"Ref": "CodeDeployEC2ServiceRole"
+					}
+				]
+			},
+			"DependsOn": ["CodeDeployEC2ServiceRole"]
 		},
 		"EC2Instance": {
 			"Type": "AWS::EC2::Instance",
@@ -646,13 +753,50 @@
 					}
 				},
 				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Sub": "${AWS::StackName}-EC2-Instance"
+						"Key": "Name",
+						"Value": {
+							"Fn::Sub": "${AWS::StackName}-EC2-Instance"
+						}
+					},
+					{
+						"Key": "EC2-Code-Deploy",
+						"Value": "EC2-Code-Deploy"
 					}
-				}]
+				]
 			},
 			"DependsOn": ["RDSDBInstance", "S3Bucket", "EC2S3InstanceProfile", "EC2SecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
+		},
+		"CodeDeployApp" : {
+			"Type" : "AWS::CodeDeploy::Application",
+			"Properties" : {
+				"ApplicationName" : "csye6225-webapp",
+				"ComputePlatform" : "Server"
+			}
+		},
+		"CodeDeployGroup" : {
+			"Type" : "AWS::CodeDeploy::DeploymentGroup",
+			"Properties" : {
+				"ApplicationName" : {"Ref" : "CodeDeployApp"},
+				"AutoRollbackConfiguration" : {
+					"Enabled" : "true",
+					"Events" : ["DEPLOYMENT_FAILURE"]
+				},
+				"DeploymentConfigName" : "CodeDeployDefault.AllAtOnce",
+				"DeploymentGroupName" : "csye6225-webapp-deployment",
+				"DeploymentStyle" : {
+					"DeploymentOption" : "WITHOUT_TRAFFIC_CONTROL",
+					"DeploymentType" : "IN_PLACE"
+				},
+				"Ec2TagFilters" : [{
+					"Key" : "EC2-Code-Deploy",
+					"Value" : "EC2-Code-Deploy",
+					"Type" : "KEY_AND_VALUE"
+				}],
+				"ServiceRoleArn" : {
+					"Fn::GetAtt": ["CodeDeployServiceRole", "Arn"]
+				}
+			},
+			"DependsOn": ["CodeDeployServiceRole", "CodeDeployApp"]
 		}
 	},
 	"Outputs": {

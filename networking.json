@@ -2,6 +2,11 @@
 	"AWSTemplateFormatVersion": "2010-09-09",
 	"Description": "Networking Setup - CSYE 6225 Spring 2020",
 	"Parameters": {
+		"Environment": {
+			"Type": "String",
+			"Default": "Production",
+			"Description": "The environment of the application deployment"
+		},
 		"VpcCIDR": {
 			"Type": "String",
 			"Default": "10.0.0.0/16",
@@ -77,6 +82,26 @@
 		"EC2VolumeSize": {
 			"Type": "Number",
 			"Default": "20"
+		},
+		"S3CodeDeploy": {
+			"Type": "String",
+			"Default": "codedeploy.sajalsood.me"
+		},
+		"RegionCodeDeploy": {
+			"Type": "String",
+			"Default": "us-east-1"
+		},
+		"AppCodeDeploy": {
+			"Type": "String",
+			"Default": "csye6225-webapp"
+		},
+		"AccountID": {
+			"Type": "String",
+			"Default": "716807557558"
+		},
+		"AWSUser": {
+			"Type": "String",
+			"Default": "circleci"
 		}
 	},
 	"Resources": {
@@ -491,37 +516,49 @@
 				"PolicyDocument": {
 					"Version": "2012-10-17",
 					"Statement": [{
-						"Sid": "VisualEditor0",
-						"Effect": "Allow",
-						"Action": [
-							"s3:GetObject",
-							"s3:ListBucket"
-						],
-						"Resource": [
-							"arn:aws:s3:::codedeploy.sajalsood.me",
-							"arn:aws:s3:::codedeploy.sajalsood.me/*"
-						]
-					},
-					{
-						"Effect": "Allow",
-						"Action": [
-							"s3:PutObject",
-							"s3:GetObject",
-							"s3:DeleteObject",
-							"s3:ListBucket"
-						],
-						"Resource": [{
-								"Fn::GetAtt": ["S3Bucket", "Arn"]
-							},
-							{
-								"Fn::Join": [
-									"", [{
-										"Fn::GetAtt": ["S3Bucket", "Arn"]
-									}, "/*"]
-								]
-							}
-						]
-					}]
+							"Sid": "VisualEditor0",
+							"Effect": "Allow",
+							"Action": [
+								"s3:GetObject",
+								"s3:ListBucket"
+							],
+							"Resource": [{
+									"Fn::Sub": ["arn:aws:s3:::${Bucket}", {
+										"Bucket": {
+											"Ref": "S3CodeDeploy"
+										}
+									}]
+								},
+								{
+									"Fn::Sub": ["arn:aws:s3:::${Bucket}/*", {
+										"Bucket": {
+											"Ref": "S3CodeDeploy"
+										}
+									}]
+								}
+							]
+						},
+						{
+							"Effect": "Allow",
+							"Action": [
+								"s3:PutObject",
+								"s3:GetObject",
+								"s3:DeleteObject",
+								"s3:ListBucket"
+							],
+							"Resource": [{
+									"Fn::GetAtt": ["S3Bucket", "Arn"]
+								},
+								{
+									"Fn::Join": [
+										"", [{
+											"Fn::GetAtt": ["S3Bucket", "Arn"]
+										}, "/*"]
+									]
+								}
+							]
+						}
+					]
 				},
 				"Roles": [{
 					"Ref": "CodeDeployEC2ServiceRole"
@@ -545,13 +582,26 @@
 							"s3:GetObject",
 							"s3:ListBucket"
 						],
-						"Resource": [
-							"arn:aws:s3:::codedeploy.sajalsood.me",
-							"arn:aws:s3:::codedeploy.sajalsood.me/*"
+						"Resource": [{
+								"Fn::Sub": ["arn:aws:s3:::${Bucket}", {
+									"Bucket": {
+										"Ref": "S3CodeDeploy"
+									}
+								}]
+							},
+							{
+								"Fn::Sub": ["arn:aws:s3:::${Bucket}/*", {
+									"Bucket": {
+										"Ref": "S3CodeDeploy"
+									}
+								}]
+							}
 						]
 					}]
 				},
-				"Users": ["circleci"]
+				"Users": [{
+					"Ref": "AWSUser"
+				}]
 			}
 		},
 		"CircleCICodeDeployPolicy": {
@@ -568,9 +618,22 @@
 								"codedeploy:GetApplicationRevision",
 								"codedeploy:RegisterApplicationRevision"
 							],
-							"Resource": [
-								"arn:aws:codedeploy:us-east-1:716807557558:application:csye6225-webapp"
-							]
+							"Resource": [{
+								"Fn::Sub": [
+									"arn:aws:codedeploy:${Region}:${Account}:application:${Application}",
+									{
+										"Region": {
+											"Ref": "RegionCodeDeploy"
+										},
+										"Account": {
+											"Ref": "AccountID"
+										},
+										"Application": {
+											"Ref": "AppCodeDeploy"
+										}
+									}
+								]
+							}]
 						},
 						{
 							"Effect": "Allow",
@@ -587,15 +650,52 @@
 							"Action": [
 								"codedeploy:GetDeploymentConfig"
 							],
-							"Resource": [
-								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.OneAtATime",
-								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.HalfAtATime",
-								"arn:aws:codedeploy:us-east-1:716807557558:deploymentconfig:CodeDeployDefault.AllAtOnce"
+							"Resource": [{
+									"Fn::Sub": [
+										"arn:aws:codedeploy:${Region}:${Account}:deploymentconfig:CodeDeployDefault.OneAtATime",
+										{
+											"Region": {
+												"Ref": "RegionCodeDeploy"
+											},
+											"Account": {
+												"Ref": "AccountID"
+											}
+										}
+									]
+								},
+								{
+									"Fn::Sub": [
+										"arn:aws:codedeploy:${Region}:${Account}:deploymentconfig:CodeDeployDefault.HalfAtATime",
+										{
+											"Region": {
+												"Ref": "RegionCodeDeploy"
+											},
+											"Account": {
+												"Ref": "AccountID"
+											}
+										}
+									]
+								},
+								{
+									"Fn::Sub": [
+										"arn:aws:codedeploy:${Region}:${Account}:deploymentconfig:CodeDeployDefault.AllAtOnce",
+										{
+											"Region": {
+												"Ref": "RegionCodeDeploy"
+											},
+											"Account": {
+												"Ref": "AccountID"
+											}
+										}
+									]
+								}
 							]
 						}
 					]
 				},
-				"Users": ["circleci"]
+				"Users": [{
+					"Ref": "AWSUser"
+				}]
 			}
 		},
 		"CodeDeployEC2ServiceRole": {
@@ -648,11 +748,9 @@
 		"EC2S3InstanceProfile": {
 			"Type": "AWS::IAM::InstanceProfile",
 			"Properties": {
-				"Roles": [
-					{
-						"Ref": "CodeDeployEC2ServiceRole"
-					}
-				]
+				"Roles": [{
+					"Ref": "CodeDeployEC2ServiceRole"
+				}]
 			},
 			"DependsOn": ["CodeDeployEC2ServiceRole"]
 		},
@@ -710,7 +808,27 @@
 					"Fn::Base64": {
 						"Fn::Join": [
 							"\n", ["#!/bin/bash -xe",
-								"touch /etc/profile.d/app.sh",
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"export DOTNET_CLI_HOME=/tmp"
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"export ASPNETCORE_ENVIRONMENT=",
+												{
+													"Ref": "Environment"
+												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
 								{
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
@@ -734,7 +852,7 @@
 												";\\\"\""
 											]
 										]
-									}, " >> /etc/profile.d/app.sh"]]
+									}, " >> /etc/environment"]]
 								},
 								{
 									"Fn::Join": ["", ["echo ", {
@@ -746,7 +864,7 @@
 												}
 											]
 										]
-									}, " >> /etc/profile.d/app.sh"]]
+									}, " >> /etc/environment"]]
 								}
 							]
 						]
@@ -766,33 +884,37 @@
 			},
 			"DependsOn": ["RDSDBInstance", "S3Bucket", "EC2S3InstanceProfile", "EC2SecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
 		},
-		"CodeDeployApp" : {
-			"Type" : "AWS::CodeDeploy::Application",
-			"Properties" : {
-				"ApplicationName" : "csye6225-webapp",
-				"ComputePlatform" : "Server"
+		"CodeDeployApp": {
+			"Type": "AWS::CodeDeploy::Application",
+			"Properties": {
+				"ApplicationName": {
+					"Ref": "AppCodeDeploy"
+				},
+				"ComputePlatform": "Server"
 			}
 		},
-		"CodeDeployGroup" : {
-			"Type" : "AWS::CodeDeploy::DeploymentGroup",
-			"Properties" : {
-				"ApplicationName" : {"Ref" : "CodeDeployApp"},
-				"AutoRollbackConfiguration" : {
-					"Enabled" : "true",
-					"Events" : ["DEPLOYMENT_FAILURE"]
+		"CodeDeployGroup": {
+			"Type": "AWS::CodeDeploy::DeploymentGroup",
+			"Properties": {
+				"ApplicationName": {
+					"Ref": "CodeDeployApp"
 				},
-				"DeploymentConfigName" : "CodeDeployDefault.AllAtOnce",
-				"DeploymentGroupName" : "csye6225-webapp-deployment",
-				"DeploymentStyle" : {
-					"DeploymentOption" : "WITHOUT_TRAFFIC_CONTROL",
-					"DeploymentType" : "IN_PLACE"
+				"AutoRollbackConfiguration": {
+					"Enabled": "true",
+					"Events": ["DEPLOYMENT_FAILURE"]
 				},
-				"Ec2TagFilters" : [{
-					"Key" : "EC2-Code-Deploy",
-					"Value" : "EC2-Code-Deploy",
-					"Type" : "KEY_AND_VALUE"
+				"DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
+				"DeploymentGroupName": "csye6225-webapp-deployment",
+				"DeploymentStyle": {
+					"DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
+					"DeploymentType": "IN_PLACE"
+				},
+				"Ec2TagFilters": [{
+					"Key": "EC2-Code-Deploy",
+					"Value": "EC2-Code-Deploy",
+					"Type": "KEY_AND_VALUE"
 				}],
-				"ServiceRoleArn" : {
+				"ServiceRoleArn": {
 					"Fn::GetAtt": ["CodeDeployServiceRole", "Arn"]
 				}
 			},

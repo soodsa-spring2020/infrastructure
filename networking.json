@@ -812,7 +812,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"export DOTNET_CLI_HOME=/tmp"
+												"DOTNET_CLI_HOME=/tmp"
 											]
 										]
 									}, " >> /etc/environment"]]
@@ -821,7 +821,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"export ASPNETCORE_ENVIRONMENT=",
+												"ASPNETCORE_ENVIRONMENT=",
 												{
 													"Ref": "Environment"
 												}
@@ -833,7 +833,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"export ConnectionStrings__DBConnection=",
+												"ConnectionStrings__DBConnection=",
 												"\"\\\"Host=", {
 													"Fn::GetAtt": ["RDSDBInstance", "Endpoint.Address"]
 												},
@@ -858,7 +858,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"export S3__BUCKET_NAME=",
+												"S3__BUCKET_NAME=",
 												{
 													"Ref": "S3Bucket"
 												}

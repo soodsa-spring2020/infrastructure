@@ -717,7 +717,10 @@
 							"sts:AssumeRole"
 						]
 					}]
-				}
+				},
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+				]
 			}
 		},
 		"CodeDeployServiceRole": {

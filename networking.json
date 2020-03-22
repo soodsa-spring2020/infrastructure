@@ -757,19 +757,84 @@
 			},
 			"DependsOn": ["CodeDeployEC2ServiceRole"]
 		},
-		"EC2Instance": {
-			"Type": "AWS::EC2::Instance",
+		"CodeDeployApp": {
+			"Type": "AWS::CodeDeploy::Application",
 			"Properties": {
-				"IamInstanceProfile": {
-					"Ref": "EC2S3InstanceProfile"
+				"ApplicationName": {
+					"Ref": "AppCodeDeploy"
 				},
-				"ImageId": {
-					"Ref": "EC2AmiId"
+				"ComputePlatform": "Server"
+			}
+		},
+		"CodeDeployGroup": {
+			"Type": "AWS::CodeDeploy::DeploymentGroup",
+			"Properties": {
+				"ApplicationName": {
+					"Ref": "CodeDeployApp"
 				},
-				"InstanceType": {
-					"Ref": "EC2InstanceClass"
+				"AutoRollbackConfiguration": {
+					"Enabled": "true",
+					"Events": ["DEPLOYMENT_FAILURE"]
 				},
-				"BlockDeviceMappings": [{
+				"DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
+				"DeploymentGroupName": "csye6225-webapp-deployment",
+				"DeploymentStyle": {
+					"DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
+					"DeploymentType": "IN_PLACE"
+				},
+				"Ec2TagFilters": [{
+					"Key": "EC2-Code-Deploy",
+					"Value": "EC2-Code-Deploy",
+					"Type": "KEY_AND_VALUE"
+				}],
+				"ServiceRoleArn": {
+					"Fn::GetAtt": ["CodeDeployServiceRole", "Arn"]
+				}
+			},
+			"DependsOn": ["CodeDeployServiceRole", "CodeDeployApp"]
+		},
+		"EC2LoadBalancer":{
+			"Type":"AWS::ElasticLoadBalancingV2::LoadBalancer",
+			"Properties":{
+			  "Subnets":[ {"Ref": "PublicSubnet1"}, {"Ref" : "PublicSubnet2"}, {"Ref" : "PublicSubnet3"} ]
+			},
+			"DependsOn": ["PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
+		},
+		"EC2TargetGroup":{
+			"Type":"AWS::ElasticLoadBalancingV2::TargetGroup",
+			"Properties":{
+			  "Name":"EC2TargetGroup",
+			  "Port": 5002,
+			  "Protocol":"HTTP",
+			  "VpcId":{
+				"Ref":"ApiVPC"
+			  }
+			},
+			"DependsOn": ["ApiVPC"]
+		},
+		"EC2LoadBalancerListener":{
+			"Type":"AWS::ElasticLoadBalancingV2::Listener",
+			"Properties":{
+			  "DefaultActions":[
+				{
+				  "TargetGroupArn": {
+					"Ref":"EC2TargetGroup"
+				  },
+				  "Type":"forward"
+				}
+			  ],
+			  "LoadBalancerArn":{
+				"Ref":"EC2LoadBalancer"
+			  },
+			  "Port": 80,
+			  "Protocol":"HTTP"
+			}
+		},
+		"AutoScalingLaunchConfig": {
+			"Type" : "AWS::AutoScaling::LaunchConfiguration",
+			"Properties" : {
+				"AssociatePublicIpAddress" : "true",
+				"BlockDeviceMappings" : [{
 					"DeviceName": {
 						"Ref": "EC2DeviceName"
 					},
@@ -785,29 +850,22 @@
 						}
 					}
 				}],
-				"KeyName": {
+				"IamInstanceProfile" :  {
+					"Ref": "EC2S3InstanceProfile"
+				},
+				"ImageId" : {
+					"Ref": "EC2AmiId"
+				},
+				"InstanceType" : {
+					"Ref": "EC2InstanceClass"
+				},
+				"KeyName" : {
 					"Ref": "EC2KeyName"
 				},
-				"SecurityGroupIds": [{
+				"SecurityGroups" : [{
 					"Ref": "EC2SecurityGroup"
 				}],
-				"SubnetId": {
-					"Fn::Select": [{
-							"Ref": "EC2SubnetChoice"
-						},
-						[{
-								"Ref": "PublicSubnet1"
-							},
-							{
-								"Ref": "PublicSubnet2"
-							},
-							{
-								"Ref": "PublicSubnet3"
-							}
-						]
-					]
-				},
-				"UserData": {
+				"UserData" : {
 					"Fn::Base64": {
 						"Fn::Join": [
 							"\n", ["#!/bin/bash -xe",
@@ -872,56 +930,106 @@
 							]
 						]
 					}
+				}
+			},
+			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup"]
+		},
+		"AutoScalingGroup": {
+			"Type" : "AWS::AutoScaling::AutoScalingGroup",
+			"Properties" : {
+				"Cooldown" : "60",
+				"DesiredCapacity" : "2",
+				"LaunchConfigurationName" : {
+					"Ref": "AutoScalingLaunchConfig"
 				},
-				"Tags": [{
-						"Key": "Name",
-						"Value": {
-							"Fn::Sub": "${AWS::StackName}-EC2-Instance"
-						}
-					},
+				"MaxSize" : "5",
+				"MinSize" : "2",
+				"Tags" :  [
 					{
 						"Key": "EC2-Code-Deploy",
 						"Value": "EC2-Code-Deploy"
 					}
 				]
 			},
-			"DependsOn": ["RDSDBInstance", "S3Bucket", "EC2S3InstanceProfile", "EC2SecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
+			"DependsOn": ["AutoScalingLaunchConfig"]
 		},
-		"CodeDeployApp": {
-			"Type": "AWS::CodeDeploy::Application",
+		"LoadBalancerAlarmHigh": {
+			"Type": "AWS::CloudWatch::Alarm",
 			"Properties": {
-				"ApplicationName": {
-					"Ref": "AppCodeDeploy"
-				},
-				"ComputePlatform": "Server"
-			}
-		},
-		"CodeDeployGroup": {
-			"Type": "AWS::CodeDeploy::DeploymentGroup",
-			"Properties": {
-				"ApplicationName": {
-					"Ref": "CodeDeployApp"
-				},
-				"AutoRollbackConfiguration": {
-					"Enabled": "true",
-					"Events": ["DEPLOYMENT_FAILURE"]
-				},
-				"DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
-				"DeploymentGroupName": "csye6225-webapp-deployment",
-				"DeploymentStyle": {
-					"DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
-					"DeploymentType": "IN_PLACE"
-				},
-				"Ec2TagFilters": [{
-					"Key": "EC2-Code-Deploy",
-					"Value": "EC2-Code-Deploy",
-					"Type": "KEY_AND_VALUE"
-				}],
-				"ServiceRoleArn": {
-					"Fn::GetAtt": ["CodeDeployServiceRole", "Arn"]
+			  "AlarmDescription": "Scale-up if CPU > 5% for 10 minutes",
+			  "MetricName": "CPUUtilization",
+			  "Namespace": "AWS/EC2",
+			  "Statistic": "Average",
+			  "Period": "300",
+			  "EvaluationPeriods": "1",
+			  "Threshold": "5",
+			  "AlarmActions": [
+				{
+				  "Ref": "WebServerScaleUpPolicy"
 				}
+			  ],
+			  "Dimensions": [
+				{
+				  "Name": "AutoScalingGroupName",
+				  "Value": {
+					"Ref": "AutoScalingGroup"
+				  }
+				}
+			  ],
+			  "ComparisonOperator": "GreaterThanThreshold"
 			},
-			"DependsOn": ["CodeDeployServiceRole", "CodeDeployApp"]
+			"DependsOn": ["AutoScalingGroup", "WebServerScaleUpPolicy"]
+		},
+		"LoadBalancerAlarmLow": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+			  "AlarmDescription": "Scale-down if CPU < 3% for 10 minutes",
+			  "MetricName": "CPUUtilization",
+			  "Namespace": "AWS/EC2",
+			  "Statistic": "Average",
+			  "Period": "300",
+			  "EvaluationPeriods": "2",
+			  "Threshold": "3",
+			  "AlarmActions": [
+				{
+				  "Ref": "WebServerScaleDownPolicy"
+				}
+			  ],
+			  "Dimensions": [
+				{
+				  "Name": "AutoScalingGroupName",
+				  "Value": {
+					"Ref": "AutoScalingGroup"
+				  }
+				}
+			  ],
+			  "ComparisonOperator": "LessThanThreshold"
+			},
+			"DependsOn": ["AutoScalingGroup", "WebServerScaleDownPolicy"]
+		},
+		"WebServerScaleUpPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+			  "AdjustmentType": "ChangeInCapacity",
+			  "AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+			  },
+			  "Cooldown": "60",
+			  "ScalingAdjustment": "1"
+			},
+			"DependsOn": ["AutoScalingGroup"]
+		},
+		"WebServerScaleDownPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+				},
+				"Cooldown": "60",
+				"ScalingAdjustment": "-1"
+			},
+			"DependsOn": ["AutoScalingGroup"]
 		}
 	},
 	"Outputs": {

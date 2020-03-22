@@ -1010,9 +1010,14 @@
 					"Key": "EC2-Code-Deploy",
 					"PropagateAtLaunch": "true",
 					"Value": "EC2-Code-Deploy"
-				}]
+				}],
+				"VPCZoneIdentifier" : [ 
+					{ "Ref": "PublicSubnet1"},
+					{ "Ref": "PublicSubnet2"},
+					{ "Ref": "PublicSubnet3"}
+				]
 			},
-			"DependsOn": ["AutoScalingLaunchConfig"]
+			"DependsOn": ["AutoScalingLaunchConfig", "PublicSubnet1",  "PublicSubnet2",  "PublicSubnet3"]
 		},
 		"LoadBalancerAlarmHigh": {
 			"Type": "AWS::CloudWatch::Alarm",

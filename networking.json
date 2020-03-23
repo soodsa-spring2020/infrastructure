@@ -777,7 +777,7 @@
 					"Events": ["DEPLOYMENT_FAILURE"]
 				},
 				"AutoScalingGroups" : [ {
-					"ref" : "AutoScalingGroup"
+					"Ref": "AutoScalingGroup"
 				}],
 				"DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
 				"DeploymentGroupName": "csye6225-webapp-deployment",
@@ -824,24 +824,6 @@
 				}
 			},
 			"DependsOn": ["ApiVPC"]
-		},
-		"EC2ListenerRule": {
-			"Type": "AWS::ElasticLoadBalancingV2::ListenerRule",
-			"Properties": {
-			  "Actions": [{
-				"Type": "forward",
-				"TargetGroupArn": { "Ref": "EC2TargetGroup" }
-			  }],
-			  "Conditions": [{
-				"Field": "http-request-method",
-				"HttpRequestMethodConfig": {
-					"Values": ["GET", "POST", "PUT", "DELETE"]
-				}
-			  }],
-			  "ListenerArn": { "Ref": "EC2LoadBalancerListener" },
-			  "Priority": 1
-			},
-			"DependsOn": ["EC2LoadBalancerListener", "EC2TargetGroup"]
 		},
 		"EC2LoadBalancerListener": {
 			"Type": "AWS::ElasticLoadBalancingV2::Listener",
@@ -1050,7 +1032,7 @@
 				"Statistic": "Average",
 				"Period": "300",
 				"EvaluationPeriods": "2",
-				"Threshold": "5",
+				"Threshold": "90",
 				"AlarmActions": [{
 					"Ref": "WebServerScaleUpPolicy"
 				}],
@@ -1073,7 +1055,7 @@
 				"Statistic": "Average",
 				"Period": "300",
 				"EvaluationPeriods": "2",
-				"Threshold": "3",
+				"Threshold": "70",
 				"AlarmActions": [{
 					"Ref": "WebServerScaleDownPolicy"
 				}],

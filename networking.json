@@ -776,6 +776,9 @@
 					"Enabled": "true",
 					"Events": ["DEPLOYMENT_FAILURE"]
 				},
+				"AutoScalingGroups" : [ {
+					"ref" : "AutoScalingGroup"
+				}],
 				"DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
 				"DeploymentGroupName": "csye6225-webapp-deployment",
 				"DeploymentStyle": {
@@ -791,7 +794,7 @@
 					"Fn::GetAtt": ["CodeDeployServiceRole", "Arn"]
 				}
 			},
-			"DependsOn": ["CodeDeployServiceRole", "CodeDeployApp"]
+			"DependsOn": ["CodeDeployServiceRole", "CodeDeployApp", "AutoScalingGroup"]
 		},
 		"EC2LoadBalancer": {
 			"Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
@@ -822,6 +825,24 @@
 			},
 			"DependsOn": ["ApiVPC"]
 		},
+		"EC2ListenerRule": {
+			"Type": "AWS::ElasticLoadBalancingV2::ListenerRule",
+			"Properties": {
+			  "Actions": [{
+				"Type": "forward",
+				"TargetGroupArn": { "Ref": "EC2TargetGroup" }
+			  }],
+			  "Conditions": [{
+				"Field": "http-request-method",
+				"HttpRequestMethodConfig": {
+					"Values": ["GET", "POST", "PUT", "DELETE"]
+				}
+			  }],
+			  "ListenerArn": { "Ref": "EC2LoadBalancerListener" },
+			  "Priority": 1
+			},
+			"DependsOn": ["EC2LoadBalancerListener", "EC2TargetGroup"]
+		},
 		"EC2LoadBalancerListener": {
 			"Type": "AWS::ElasticLoadBalancingV2::Listener",
 			"Properties": {
@@ -836,7 +857,8 @@
 				},
 				"Port": 80,
 				"Protocol": "HTTP"
-			}
+			},
+			"DependsOn": ["EC2LoadBalancer", "EC2TargetGroup"]
 		},
 		"AutoScalingLaunchConfig": {
 			"Type": "AWS::AutoScaling::LaunchConfiguration",
@@ -1027,7 +1049,7 @@
 				"Namespace": "AWS/EC2",
 				"Statistic": "Average",
 				"Period": "300",
-				"EvaluationPeriods": "1",
+				"EvaluationPeriods": "2",
 				"Threshold": "5",
 				"AlarmActions": [{
 					"Ref": "WebServerScaleUpPolicy"

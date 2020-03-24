@@ -1287,7 +1287,7 @@
 					},
 					{
 						"Name": {
-							"Fn::Sub": ["*.${HostName}", {
+							"Fn::Sub": ["www.${HostName}", {
 								"HostName": {
 									"Ref": "HostedZoneName"
 								}

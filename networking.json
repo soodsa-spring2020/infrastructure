@@ -63,10 +63,6 @@
 			"Type": "String",
 			"Default": "t2.micro"
 		},
-		"EC2SubnetChoice": {
-			"Type": "Number",
-			"Default": "0"
-		},
 		"EC2VolumeType": {
 			"Type": "String",
 			"Default": "gp2"
@@ -98,6 +94,10 @@
 		"AccountID": {
 			"Type": "String",
 			"Default": "716807557558"
+		},
+		"AWSUser": {
+			"Type": "String",
+			"Default": "circleci"
 		},
 		"WebAppPort": {
 			"Type": "String",
@@ -1169,7 +1169,24 @@
 				"ScalingAdjustment": { "Ref" : "AutoScaleDownPolicyAdjustment" }
 			},
 			"DependsOn": ["AutoScalingGroup"]
-		}
+		},
+		"DNSRecordSetGroup" : {
+			"Type" : "AWS::Route53::RecordSetGroup",
+			"Properties" : {
+				"HostedZoneName" : "sajalsood.me.",
+				"RecordSets" : [
+					{
+						"Name" : "sajalsood.me.",
+						"Type" : "A",
+						"AliasTarget" : {
+							"HostedZoneId" : { "Fn::GetAtt" : ["EC2LoadBalancer", "CanonicalHostedZoneID"] },
+							"DNSName" : { "Fn::GetAtt" : ["EC2LoadBalancer", "DNSName"] }
+						}
+					}
+				]
+			},
+			"DependsOn": ["EC2LoadBalancer"]
+		 }
 	},
 	"Outputs": {
 		"VPCId": {

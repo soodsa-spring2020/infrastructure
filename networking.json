@@ -1104,7 +1104,7 @@
 					"PropagateAtLaunch": "true",
 					"Value": "EC2-Code-Deploy"
 				}],
-				"TargetGroupArns" : [{
+				"TargetGroupARNs" : [{
 					"Ref" : "EC2TargetGroup"
 				}],
 				"VPCZoneIdentifier" : [ 

@@ -194,6 +194,10 @@
 		"AutoScaleDownPolicyAdjustment": {
 			"Type": "String",
 			"Default": "-1"
+		},
+		"HostedZoneName": {
+			"Type": "String",
+			"Default": "sajalsood.me."
 		}
 	},
 	"Resources": {
@@ -455,8 +459,12 @@
 					{
 						"CidrIp": "0.0.0.0/0",
 						"IpProtocol": "tcp",
-						"FromPort": { "Ref" : "WebAppPort"},
-						"ToPort": { "Ref" : "WebAppPort"}
+						"FromPort": {
+							"Ref": "WebAppPort"
+						},
+						"ToPort": {
+							"Ref": "WebAppPort"
+						}
 					}
 				],
 				"Tags": [{
@@ -868,14 +876,22 @@
 					"Enabled": "true",
 					"Events": ["DEPLOYMENT_FAILURE"]
 				},
-				"AutoScalingGroups" : [ {
+				"AutoScalingGroups": [{
 					"Ref": "AutoScalingGroup"
 				}],
-				"DeploymentConfigName": { "Ref" : "CodeDeployConfigName" },
-				"DeploymentGroupName": { "Ref" : "CodeDeployGroupName" },
+				"DeploymentConfigName": {
+					"Ref": "CodeDeployConfigName"
+				},
+				"DeploymentGroupName": {
+					"Ref": "CodeDeployGroupName"
+				},
 				"DeploymentStyle": {
-					"DeploymentOption": { "Ref" : "CodeDeployStyleOption" },
-					"DeploymentType": { "Ref" : "CodeDeployStyleType" }
+					"DeploymentOption": {
+						"Ref": "CodeDeployStyleOption"
+					},
+					"DeploymentType": {
+						"Ref": "CodeDeployStyleType"
+					}
 				},
 				"Ec2TagFilters": [{
 					"Key": "EC2-Code-Deploy",
@@ -909,8 +925,12 @@
 			"Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
 			"Properties": {
 				"Name": "EC2TargetGroup",
-				"Port": { "Ref" : "WebAppPort" },
-				"Protocol": { "Ref" : "WebAppProtocol" },
+				"Port": {
+					"Ref": "WebAppPort"
+				},
+				"Protocol": {
+					"Ref": "WebAppProtocol"
+				},
 				"VpcId": {
 					"Ref": "ApiVPC"
 				}
@@ -929,17 +949,25 @@
 				"LoadBalancerArn": {
 					"Ref": "EC2LoadBalancer"
 				},
-				"Port": { "Ref" : "WebAppForwardPort" },
-				"Protocol": { "Ref" : "WebAppProtocol" }
+				"Port": {
+					"Ref": "WebAppForwardPort"
+				},
+				"Protocol": {
+					"Ref": "WebAppProtocol"
+				}
 			},
 			"DependsOn": ["EC2LoadBalancer", "EC2TargetGroup"]
 		},
 		"AutoScalingLaunchConfig": {
 			"Type": "AWS::AutoScaling::LaunchConfiguration",
 			"Properties": {
-				"AssociatePublicIpAddress": { "Ref" : "AutoScalePublicIpAddress" },
+				"AssociatePublicIpAddress": {
+					"Ref": "AutoScalePublicIpAddress"
+				},
 				"BlockDeviceMappings": [{
-					"DeviceName": { "Ref": "EC2DeviceName" },
+					"DeviceName": {
+						"Ref": "EC2DeviceName"
+					},
 					"Ebs": {
 						"VolumeType": {
 							"Ref": "EC2VolumeType"
@@ -1040,9 +1068,10 @@
 		"AutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
 			"Properties": {
-				"AutoScalingGroupName": { "Ref" : "AutoScaleGroupName" },
-				"AvailabilityZones": [
-					{
+				"AutoScalingGroupName": {
+					"Ref": "AutoScaleGroupName"
+				},
+				"AvailabilityZones": [{
 						"Fn::Join": ["",
 							[{
 									"Ref": "AWS::Region"
@@ -1094,41 +1123,72 @@
 						]
 					}
 				],
-				"Cooldown": { "Ref" : "AutoScaleCoolDown" },
-				"DesiredCapacity": { "Ref" : "AutoScaleDesiredCapacity" },
-				"LaunchConfigurationName": { "Ref": "AutoScalingLaunchConfig" },
-				"MaxSize": { "Ref" : "AutoScaleMaxSize" },
-				"MinSize": { "Ref" : "AutoScaleMinSize" },
+				"Cooldown": {
+					"Ref": "AutoScaleCoolDown"
+				},
+				"DesiredCapacity": {
+					"Ref": "AutoScaleDesiredCapacity"
+				},
+				"LaunchConfigurationName": {
+					"Ref": "AutoScalingLaunchConfig"
+				},
+				"MaxSize": {
+					"Ref": "AutoScaleMaxSize"
+				},
+				"MinSize": {
+					"Ref": "AutoScaleMinSize"
+				},
 				"Tags": [{
 					"Key": "EC2-Code-Deploy",
 					"PropagateAtLaunch": "true",
 					"Value": "EC2-Code-Deploy"
 				}],
-				"TargetGroupARNs" : [{
-					"Ref" : "EC2TargetGroup"
+				"TargetGroupARNs": [{
+					"Ref": "EC2TargetGroup"
 				}],
-				"VPCZoneIdentifier" : [ 
-					{ "Ref": "PublicSubnet1"},
-					{ "Ref": "PublicSubnet2"},
-					{ "Ref": "PublicSubnet3"}
+				"VPCZoneIdentifier": [{
+						"Ref": "PublicSubnet1"
+					},
+					{
+						"Ref": "PublicSubnet2"
+					},
+					{
+						"Ref": "PublicSubnet3"
+					}
 				]
 			},
-			"DependsOn": ["AutoScalingLaunchConfig", "EC2TargetGroup", "PublicSubnet1",  "PublicSubnet2",  "PublicSubnet3"]
+			"DependsOn": ["AutoScalingLaunchConfig", "EC2TargetGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
 		},
 		"LoadBalancerAlarmHigh": {
 			"Type": "AWS::CloudWatch::Alarm",
 			"Properties": {
 				"AlarmDescription": "Scale-up if CPU Utilization High",
-				"MetricName": { "Ref" : "LoadBalanceAlarmMetricName" },
-				"Namespace": { "Ref" : "LoadBalanceAlarmNamespace" },
-				"Statistic": { "Ref" : "LoadBalanceAlarmStatistic" },
-				"Period": { "Ref" : "LoadBalanceAlarmPeriod" },
-				"EvaluationPeriods": { "Ref" : "LoadBalanceAlarmEvalPeriod" },
-				"Threshold": { "Ref" : "LoadBalanceAlarmHighThreshold" },
-				"AlarmActions": [{ "Ref": "WebServerScaleUpPolicy" }],
+				"MetricName": {
+					"Ref": "LoadBalanceAlarmMetricName"
+				},
+				"Namespace": {
+					"Ref": "LoadBalanceAlarmNamespace"
+				},
+				"Statistic": {
+					"Ref": "LoadBalanceAlarmStatistic"
+				},
+				"Period": {
+					"Ref": "LoadBalanceAlarmPeriod"
+				},
+				"EvaluationPeriods": {
+					"Ref": "LoadBalanceAlarmEvalPeriod"
+				},
+				"Threshold": {
+					"Ref": "LoadBalanceAlarmHighThreshold"
+				},
+				"AlarmActions": [{
+					"Ref": "WebServerScaleUpPolicy"
+				}],
 				"Dimensions": [{
 					"Name": "AutoScalingGroupName",
-					"Value": { "Ref": "AutoScalingGroup" }
+					"Value": {
+						"Ref": "AutoScalingGroup"
+					}
 				}],
 				"ComparisonOperator": "GreaterThanThreshold"
 			},
@@ -1138,16 +1198,32 @@
 			"Type": "AWS::CloudWatch::Alarm",
 			"Properties": {
 				"AlarmDescription": "Scale-down if CPU Utilization Low",
-				"MetricName": { "Ref" : "LoadBalanceAlarmMetricName" },
-				"Namespace": { "Ref" : "LoadBalanceAlarmNamespace" },
-				"Statistic": { "Ref" : "LoadBalanceAlarmStatistic" },
-				"Period": { "Ref" : "LoadBalanceAlarmPeriod" },
-				"EvaluationPeriods": { "Ref" : "LoadBalanceAlarmEvalPeriod" },
-				"Threshold": { "Ref" : "LoadBalanceAlarmLowThreshold" },
-				"AlarmActions": [{ "Ref": "WebServerScaleDownPolicy" }],
+				"MetricName": {
+					"Ref": "LoadBalanceAlarmMetricName"
+				},
+				"Namespace": {
+					"Ref": "LoadBalanceAlarmNamespace"
+				},
+				"Statistic": {
+					"Ref": "LoadBalanceAlarmStatistic"
+				},
+				"Period": {
+					"Ref": "LoadBalanceAlarmPeriod"
+				},
+				"EvaluationPeriods": {
+					"Ref": "LoadBalanceAlarmEvalPeriod"
+				},
+				"Threshold": {
+					"Ref": "LoadBalanceAlarmLowThreshold"
+				},
+				"AlarmActions": [{
+					"Ref": "WebServerScaleDownPolicy"
+				}],
 				"Dimensions": [{
 					"Name": "AutoScalingGroupName",
-					"Value": { "Ref": "AutoScalingGroup" }
+					"Value": {
+						"Ref": "AutoScalingGroup"
+					}
 				}],
 				"ComparisonOperator": "LessThanThreshold"
 			},
@@ -1156,34 +1232,75 @@
 		"WebServerScaleUpPolicy": {
 			"Type": "AWS::AutoScaling::ScalingPolicy",
 			"Properties": {
-				"AdjustmentType": { "Ref" : "AutoScalePolicyType" },
-				"AutoScalingGroupName": { "Ref": "AutoScalingGroup" },
-				"Cooldown": { "Ref" : "AutoScalePolicyCooldown" },
-				"ScalingAdjustment": { "Ref" : "AutoScaleUpPolicyAdjustment" }
+				"AdjustmentType": {
+					"Ref": "AutoScalePolicyType"
+				},
+				"AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+				},
+				"Cooldown": {
+					"Ref": "AutoScalePolicyCooldown"
+				},
+				"ScalingAdjustment": {
+					"Ref": "AutoScaleUpPolicyAdjustment"
+				}
 			},
 			"DependsOn": ["AutoScalingGroup"]
 		},
 		"WebServerScaleDownPolicy": {
 			"Type": "AWS::AutoScaling::ScalingPolicy",
 			"Properties": {
-				"AdjustmentType": { "Ref" : "AutoScalePolicyType"},
-				"AutoScalingGroupName": { "Ref": "AutoScalingGroup" },
-				"Cooldown": { "Ref" : "AutoScalePolicyCooldown" },
-				"ScalingAdjustment": { "Ref" : "AutoScaleDownPolicyAdjustment" }
+				"AdjustmentType": {
+					"Ref": "AutoScalePolicyType"
+				},
+				"AutoScalingGroupName": {
+					"Ref": "AutoScalingGroup"
+				},
+				"Cooldown": {
+					"Ref": "AutoScalePolicyCooldown"
+				},
+				"ScalingAdjustment": {
+					"Ref": "AutoScaleDownPolicyAdjustment"
+				}
 			},
 			"DependsOn": ["AutoScalingGroup"]
 		},
-		"DNSRecordSetGroup" : {
-			"Type" : "AWS::Route53::RecordSetGroup",
-			"Properties" : {
-				"HostedZoneName" : "sajalsood.me.",
-				"RecordSets" : [
+		"DNSRecordSetGroup": {
+			"Type": "AWS::Route53::RecordSetGroup",
+			"Properties": {
+				"HostedZoneName": {
+					"Ref": "HostedZoneName"
+				},
+				"RecordSets": [{
+						"Name": {
+							"Ref": "HostedZoneName"
+						},
+						"Type": "A",
+						"AliasTarget": {
+							"HostedZoneId": {
+								"Fn::GetAtt": ["EC2LoadBalancer", "CanonicalHostedZoneID"]
+							},
+							"DNSName": {
+								"Fn::GetAtt": ["EC2LoadBalancer", "DNSName"]
+							}
+						}
+					},
 					{
-						"Name" : "sajalsood.me.",
-						"Type" : "A",
-						"AliasTarget" : {
-							"HostedZoneId" : { "Fn::GetAtt" : ["EC2LoadBalancer", "CanonicalHostedZoneID"] },
-							"DNSName" : { "Fn::GetAtt" : ["EC2LoadBalancer", "DNSName"] }
+						"Name": {
+							"Fn::Sub": ["*.${HostName}", {
+								"HostName": {
+									"Ref": "HostedZoneName"
+								}
+							}]
+						},
+						"Type": "A",
+						"AliasTarget": {
+							"HostedZoneId": {
+								"Fn::GetAtt": ["EC2LoadBalancer", "CanonicalHostedZoneID"]
+							},
+							"DNSName": {
+								"Fn::GetAtt": ["EC2LoadBalancer", "DNSName"]
+							}
 						}
 					}
 				]
@@ -1194,7 +1311,9 @@
 	"Outputs": {
 		"VPCId": {
 			"Description": "VPC Id of the newly created VPC",
-			"Value": { "Ref": "ApiVPC" }
+			"Value": {
+				"Ref": "ApiVPC"
+			}
 		}
 	}
 }

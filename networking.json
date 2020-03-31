@@ -1050,9 +1050,21 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"S3__BUCKET_NAME=",
+												"AWS__BILL_BUCKET_NAME=",
 												{
 													"Ref": "S3Bucket"
+												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__SQSURL=",
+												{
+													"Ref": "SQSQueue"
 												}
 											]
 										]
@@ -1063,7 +1075,7 @@
 					}
 				}
 			},
-			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup"]
+			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup", "SQSQueue"]
 		},
 		"AutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
@@ -1306,6 +1318,80 @@
 				]
 			},
 			"DependsOn": ["EC2LoadBalancer"]
+		},
+		"SQSQueue" : {
+			"Type" : "AWS::SQS::Queue",
+			"Properties" : {
+				"QueueName" : "SQSQueue"
+			}
+		},
+		"SNSTopic": {
+			"Type" : "AWS::SNS::Topic",
+			"Properties" : {
+				"DisplayName" : "SNSTopic",
+				"Subscription" : [{
+					"Endpoint" : { "Fn::GetAtt" : [ "SQSQueue", "Arn" ] },
+					"Protocol" : "sqs"
+				}],
+				"TopicName" : "SNSTopic"
+			},
+			"DependsOn": ["SQSQueue"]
+		},
+		"LambdaExecutionRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+			  "AssumeRolePolicyDocument": {
+				"Version": "2012-10-17",
+				"Statement": [
+					{ 
+						"Effect": "Allow", 
+						"Principal": {
+							"Service": ["lambda.amazonaws.com"]
+						}, 
+						"Action": ["sts:AssumeRole"] 
+					}
+				]
+			  },
+			  "Path": "/",
+			  "Policies": [{
+				"PolicyName": {
+					"Fn::Sub": "${AWS::StackName}-LambdaExecution"
+				},
+				"PolicyDocument": {
+				  "Version": "2012-10-17",
+				  "Statement": [
+					  	{
+						   "Effect": "Allow",
+						   "Action": ["cloudwatch:*", "logs:*"],
+						   "Resource": "*" 
+						}
+					]
+				}
+			  }]
+			}
+		},
+		"SendEmailLambdaFunction": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+			  "Handler": "index.handler",
+			  "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
+			  "Code": {
+				"ZipFile":  { "Fn::Join": ["", [
+					"const AWS = require('aws-sdk');",
+					"exports.handler = function(event, context) {",
+					"const params = { Destination: { ToAddresses: [event.email] },",
+					"Message: { Body: { Text: { Charset: 'UTF-8', Data: event.bill }},",
+					"Subject: { Charset: 'UTF-8', Data: 'Bill' }},",
+					"Source: 'CSYE6225-WebApp'};",
+					"const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(params).promise();",
+					"sendPromise.then(data => { context.done(null, 'Success'); })",
+					".catch(err => {context.done(null, 'Failed');});",
+					"};"
+				]]}
+			  },
+			  "Runtime": "nodejs12.x"
+			},
+			"DependsOn": ["LambdaExecutionRole"]
 		}
 	},
 	"Outputs": {

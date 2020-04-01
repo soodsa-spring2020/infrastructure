@@ -436,7 +436,38 @@
 				"GroupName": "application",
 				"GroupDescription": "Access to the EC2 Instance",
 				"VpcId": {
-					"Ref": "ApiVPC"
+					"Ref": "ApiVPC" 
+				},
+				"SecurityGroupIngress": [
+					{
+						"SourceSecurityGroupId": {
+							"Fn::GetAtt" : ["ELBSecurityGroup", "GroupId"]
+						},
+						"IpProtocol": "tcp",
+						"FromPort": {
+							"Ref": "WebAppPort"
+						},
+						"ToPort": {
+							"Ref": "WebAppPort"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Sub": "${AWS::StackName}-EC2-SG"
+					}
+				}]
+			},
+			"DependsOn": ["ApiVPC", "ELBSecurityGroup"]
+		},
+		"ELBSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupName": "loadbalancer",
+				"GroupDescription": "Access to the ELB",
+				"VpcId": {
+					"Ref": "ApiVPC" 
 				},
 				"SecurityGroupIngress": [{
 						"CidrIp": "0.0.0.0/0",
@@ -455,22 +486,12 @@
 						"IpProtocol": "tcp",
 						"FromPort": 443,
 						"ToPort": 443
-					},
-					{
-						"CidrIp": "0.0.0.0/0",
-						"IpProtocol": "tcp",
-						"FromPort": {
-							"Ref": "WebAppPort"
-						},
-						"ToPort": {
-							"Ref": "WebAppPort"
-						}
 					}
 				],
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}-EC2-SG"
+						"Fn::Sub": "${AWS::StackName}-ELB-SG"
 					}
 				}]
 			},
@@ -909,7 +930,7 @@
 			"Properties": {
 				"Name": "EC2LoadBalancer",
 				"SecurityGroups": [{
-					"Ref": "EC2SecurityGroup"
+					"Ref": "ELBSecurityGroup"
 				}],
 				"Subnets": [{
 					"Ref": "PublicSubnet1"
@@ -919,7 +940,7 @@
 					"Ref": "PublicSubnet3"
 				}]
 			},
-			"DependsOn": ["PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
+			"DependsOn": ["ELBSecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
 		},
 		"EC2TargetGroup": {
 			"Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
@@ -1069,13 +1090,35 @@
 											]
 										]
 									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__APPURL=",
+												{
+													"Ref": "HostedZoneName"
+												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__SNS_TOPIC_ARN=",
+												{ "Fn::GetAtt" : [ "SNSTopic", "Arn" ] }
+											]
+										]
+									}, " >> /etc/environment"]]
 								}
 							]
 						]
 					}
 				}
 			},
-			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup", "SQSQueue"]
+			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup", "SQSQueue", "SNSTopic"]
 		},
 		"AutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
@@ -1330,12 +1373,12 @@
 			"Properties" : {
 				"DisplayName" : "SNSTopic",
 				"Subscription" : [{
-					"Endpoint" : { "Fn::GetAtt" : [ "SQSQueue", "Arn" ] },
-					"Protocol" : "sqs"
+					"Endpoint" : { "Fn::GetAtt" : [ "SendEmailLambdaFunction", "Arn" ] },
+					"Protocol" : "lambda"
 				}],
 				"TopicName" : "SNSTopic"
 			},
-			"DependsOn": ["SQSQueue"]
+			"DependsOn": ["SendEmailLambdaFunction"]
 		},
 		"LambdaExecutionRole": {
 			"Type": "AWS::IAM::Role",
@@ -1362,7 +1405,7 @@
 				  "Statement": [
 					  	{
 						   "Effect": "Allow",
-						   "Action": ["cloudwatch:*", "logs:*"],
+						   "Action": ["s3:*", "cloudwatch:*", "logs:*", "ses:*","lambda:*","sns:*"],
 						   "Resource": "*" 
 						}
 					]
@@ -1376,22 +1419,24 @@
 			  "Handler": "index.handler",
 			  "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
 			  "Code": {
-				"ZipFile":  { "Fn::Join": ["", [
-					"const AWS = require('aws-sdk');",
-					"exports.handler = function(event, context) {",
-					"const params = { Destination: { ToAddresses: [event.email] },",
-					"Message: { Body: { Text: { Charset: 'UTF-8', Data: event.bill }},",
-					"Subject: { Charset: 'UTF-8', Data: 'Bill' }},",
-					"Source: 'CSYE6225-WebApp'};",
-					"const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(params).promise();",
-					"sendPromise.then(data => { context.done(null, 'Success'); })",
-					".catch(err => {context.done(null, 'Failed');});",
-					"};"
-				]]}
-			  },
+				"S3Bucket":  { "Ref": "S3CodeDeploy" },
+				"S3Key" : "sendemail.zip"
+				},
 			  "Runtime": "nodejs12.x"
 			},
 			"DependsOn": ["LambdaExecutionRole"]
+		},
+		"LambdaInvokePermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+			  "Action": "lambda:InvokeFunction",
+			  "Principal": "sns.amazonaws.com",
+			  "SourceArn": { "Ref": "SNSTopic" },
+			  "FunctionName": {
+				"Fn::GetAtt": [ "SendEmailLambdaFunction", "Arn" ]
+			  }
+			},
+			"DependsOn": ["SendEmailLambdaFunction", "SNSTopic"]
 		}
 	},
 	"Outputs": {

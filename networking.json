@@ -224,7 +224,10 @@
 		"DDBTableTTL" : {
 			"Type" : "String"
 		},
-		"SendEmailFunction" :{
+		"SendEmailFunction" : {
+			"Type" : "String"
+		},
+		"SendEmailSource": {
 			"Type" : "String"
 		}
 	},
@@ -1355,7 +1358,11 @@
 				},
 				"RecordSets": [{
 						"Name": {
-							"Ref": "HostedZoneName"
+							"Fn::Sub": ["${HostName}.", {
+								"HostName": {
+									"Ref": "HostedZoneName"
+								}
+							}]
 						},
 						"Type": "A",
 						"AliasTarget": {
@@ -1369,7 +1376,7 @@
 					},
 					{
 						"Name": {
-							"Fn::Sub": ["www.${HostName}", {
+							"Fn::Sub": ["www.${HostName}.", {
 								"HostName": {
 									"Ref": "HostedZoneName"
 								}
@@ -1489,7 +1496,19 @@
 			  "Environment" : {
 				"Variables" : { 
 					"ddb_table_name": { "Ref" : "DDBTableName" },
-					"ttl" : { "Ref" : "DDBTableTTL"}
+					"ttl" : { "Ref" : "DDBTableTTL"},
+					"source" : {
+						"Fn::Join": [
+							"@",
+								[{
+									"Ref": "SendEmailSource"
+								},
+								{
+									"Ref": "HostedZoneName"
+								}
+							]
+						]
+						}
 				}
 			  }
 			},

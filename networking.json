@@ -748,6 +748,35 @@
 								}]
 							}
 						]
+					},
+					{
+						"Effect": "Allow",
+						"Action": [
+							"lambda:UpdateFunctionCode"
+						],
+						"Resource": [{
+								"Fn::Sub": ["arn:aws:lambda:${Region}:${Account}:function:{Func}", {
+									"Region": {
+										"Ref": "RegionCodeDeploy"
+									},
+									"Account": {
+										"Ref": "AccountID"
+									},
+									"Func": {
+										"Fn::Join": [
+											"-",
+												[{
+													"Fn::Sub": "${AWS::StackName}"
+												},
+												{
+													"Ref": "SendEmailFunction"
+												}
+											]
+										]
+									}
+								}]
+							}
+						]
 					}]
 				},
 				"Users": [{
@@ -1417,6 +1446,49 @@
 				}
 			}
 		},
+		"SQSPolicy" : {
+			"Type" : "AWS::SQS::QueuePolicy",
+			"Properties" : {
+			   "PolicyDocument" : {
+				  "Id" : "SQSPolicy",
+				  "Version" : "2012-10-17",
+				  "Statement" : [ {
+					 "Effect" : "Allow",
+					 "Principal" : "*",
+					 "Action" : [ "SQS:*" ],
+					 "Resource" : [{
+						"Fn::Sub": [
+							"arn:aws:sqs:${Region}:${Account}:${Queue}",
+							{
+								"Region": {
+									"Ref": "RegionCodeDeploy"
+								},
+								"Account": {
+									"Ref": "AccountID"
+								},
+								"Queue": {
+									"Fn::Join": [
+										"-",
+											[{
+												"Fn::Sub": "${AWS::StackName}"
+											},
+											{
+												"Ref": "SQSQueueName"
+											}
+										]
+									]
+								}
+							}
+						]
+					}]
+				  }]
+			   },
+			   "Queues" : [
+				  { "Ref" : "SQSQueue" }
+			   ]
+			},
+			"DependsOn": ["SQSQueue"]
+		},
 		"SNSTopic": {
 			"Type" : "AWS::SNS::Topic",
 			"Properties" : {
@@ -1451,6 +1523,48 @@
 			},
 			"DependsOn": ["SendEmailLambdaFunction"]
 		},
+		"SNSPolicy" : {
+			"Type" : "AWS::SNS::TopicPolicy",
+			"Properties" : {
+			   "PolicyDocument" : {
+				  "Version" : "2012-10-17",
+				  "Statement" : [ {
+					 "Effect" : "Allow",
+					 "Principal" : "*",
+					 "Action" : [ "sns:Publish" ],
+					 "Resource" : [{
+						"Fn::Sub": [
+							"arn:aws:sns:${Region}:${Account}:${Topic}",
+							{
+								"Region": {
+									"Ref": "RegionCodeDeploy"
+								},
+								"Account": {
+									"Ref": "AccountID"
+								},
+								"Topic": {
+									"Fn::Join": [
+										"-",
+											[{
+												"Fn::Sub": "${AWS::StackName}"
+											},
+											{
+												"Ref": "SNSTopicName"
+											}
+										]
+									]
+								}
+							}
+						]
+					}]
+				  }]
+			   },
+			   "Topics" : [
+				  { "Ref" : "SNSTopic" }
+			   ]
+			},
+			"DependsOn": ["SNSTopic"]
+		},
 		"LambdaExecutionRole": {
 			"Type": "AWS::IAM::Role",
 			"Properties": {
@@ -1471,6 +1585,7 @@
 					"arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
 					"arn:aws:iam::aws:policy/AmazonSNSFullAccess",
 					"arn:aws:iam::aws:policy/AmazonSESFullAccess",
+					"arn:aws:iam::aws:policy/AmazonSQSFullAccess",
 					"arn:aws:iam::aws:policy/AmazonS3FullAccess"
 				]	
 			}

@@ -755,7 +755,7 @@
 							"lambda:UpdateFunctionCode"
 						],
 						"Resource": [{
-								"Fn::Sub": ["arn:aws:lambda:${Region}:${Account}:function:{Func}", {
+								"Fn::Sub": ["arn:aws:lambda:${Region}:${Account}:function:${Func}", {
 									"Region": {
 										"Ref": "RegionCodeDeploy"
 									},

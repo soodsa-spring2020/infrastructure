@@ -223,6 +223,9 @@
 		},
 		"DDBTableTTL" : {
 			"Type" : "String"
+		},
+		"SendEmailFunction" :{
+			"Type" : "String"
 		}
 	},
 	"Resources": {
@@ -1452,34 +1455,30 @@
 					}
 				]
 			  },
-			  "Path": "/",
-			  "Policies": [{
-				"PolicyName": {
-					"Fn::Sub": "${AWS::StackName}-LambdaExecution"
-				},
-				"PolicyDocument": {
-				  "Version": "2012-10-17",
-				  "Statement": [
-					  	{
-						   "Effect": "Allow",
-						   "Action": [
-							   "s3:*", 
-							   "cloudwatch:*", 
-							   "logs:*", 
-							   "ses:*",
-							   "lambda:*",
-							   "dynamodb:*"
-							],
-						   "Resource": "*" 
-						}
-					]
-				}
-			  }]
+			  "ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+					"arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+					"arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+					"arn:aws:iam::aws:policy/AmazonSESFullAccess",
+					"arn:aws:iam::aws:policy/AmazonS3FullAccess"
+				]	
 			}
 		},
 		"SendEmailLambdaFunction": {
 			"Type": "AWS::Lambda::Function",
 			"Properties": {
+			  "FunctionName" : {
+				"Fn::Join": [
+					"-",
+						[{
+							"Fn::Sub": "${AWS::StackName}"
+						},
+						{
+							"Ref": "SendEmailFunction"
+						}
+					]
+				]
+				},
 			  "Handler": { "Ref": "EmailLambdaHandler" },
 			  "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
 			  "Code": {

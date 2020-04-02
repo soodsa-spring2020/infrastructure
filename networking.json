@@ -220,6 +220,9 @@
 		},
 		"SQSQueueName": {
 			"Type": "String"
+		},
+		"DDBTableTTL" : {
+			"Type" : "String"
 		}
 	},
 	"Resources": {
@@ -1483,7 +1486,13 @@
 				"S3Bucket":  { "Ref": "S3CodeDeploy" },
 				"S3Key" :  { "Ref": "EmailLambdaZip" }
 				},
-			  "Runtime": { "Ref": "EmailLambdaRuntime" }
+			  "Runtime": { "Ref": "EmailLambdaRuntime" },
+			  "Environment" : {
+				"Variables" : { 
+					"ddb_table_name": { "Ref" : "DDBTableName" },
+					"ttl" : { "Ref" : "DDBTableTTL"}
+				}
+			  }
 			},
 			"DependsOn": ["LambdaExecutionRole"]
 		},

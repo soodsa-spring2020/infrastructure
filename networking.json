@@ -198,6 +198,37 @@
 		"HostedZoneName": {
 			"Type": "String",
 			"Default": "sajalsood.me."
+		},
+		"DDBTableName": {
+			"Type": "String",
+			"Default": "DUE_BILL_EMAIL_DB"
+		},
+		"EmailLambdaZip": {
+			"Type": "String",
+			"Default": "sendemail.zip"
+		},
+		"EmailLambdaRuntime": {
+			"Type": "String",
+			"Default": "nodejs12.x"
+		},
+		"EmailLambdaHandler": {
+			"Type": "String",
+			"Default": "index.handler"
+		},
+		"SNSTopicName": {
+			"Type": "String"
+		},
+		"SQSQueueName": {
+			"Type": "String"
+		},
+		"DDBTableTTL" : {
+			"Type" : "String"
+		},
+		"SendEmailFunction" : {
+			"Type" : "String"
+		},
+		"SendEmailSource": {
+			"Type" : "String"
 		}
 	},
 	"Resources": {
@@ -436,7 +467,38 @@
 				"GroupName": "application",
 				"GroupDescription": "Access to the EC2 Instance",
 				"VpcId": {
-					"Ref": "ApiVPC"
+					"Ref": "ApiVPC" 
+				},
+				"SecurityGroupIngress": [
+					{
+						"SourceSecurityGroupId": {
+							"Fn::GetAtt" : ["ELBSecurityGroup", "GroupId"]
+						},
+						"IpProtocol": "tcp",
+						"FromPort": {
+							"Ref": "WebAppPort"
+						},
+						"ToPort": {
+							"Ref": "WebAppPort"
+						}
+					}
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Sub": "${AWS::StackName}-EC2-SG"
+					}
+				}]
+			},
+			"DependsOn": ["ApiVPC", "ELBSecurityGroup"]
+		},
+		"ELBSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupName": "loadbalancer",
+				"GroupDescription": "Access to the ELB",
+				"VpcId": {
+					"Ref": "ApiVPC" 
 				},
 				"SecurityGroupIngress": [{
 						"CidrIp": "0.0.0.0/0",
@@ -455,22 +517,12 @@
 						"IpProtocol": "tcp",
 						"FromPort": 443,
 						"ToPort": 443
-					},
-					{
-						"CidrIp": "0.0.0.0/0",
-						"IpProtocol": "tcp",
-						"FromPort": {
-							"Ref": "WebAppPort"
-						},
-						"ToPort": {
-							"Ref": "WebAppPort"
-						}
 					}
 				],
 				"Tags": [{
 					"Key": "Name",
 					"Value": {
-						"Fn::Sub": "${AWS::StackName}-EC2-SG"
+						"Fn::Sub": "${AWS::StackName}-ELB-SG"
 					}
 				}]
 			},
@@ -554,7 +606,6 @@
 							}
 						]
 					]
-
 				},
 				"MasterUsername": {
 					"Ref": "RDSUser"
@@ -909,7 +960,7 @@
 			"Properties": {
 				"Name": "EC2LoadBalancer",
 				"SecurityGroups": [{
-					"Ref": "EC2SecurityGroup"
+					"Ref": "ELBSecurityGroup"
 				}],
 				"Subnets": [{
 					"Ref": "PublicSubnet1"
@@ -919,7 +970,7 @@
 					"Ref": "PublicSubnet3"
 				}]
 			},
-			"DependsOn": ["PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
+			"DependsOn": ["ELBSecurityGroup", "PublicSubnet1", "PublicSubnet2", "PublicSubnet3"]
 		},
 		"EC2TargetGroup": {
 			"Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
@@ -1050,10 +1101,44 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"S3__BUCKET_NAME=",
+												"AWS__BILL_BUCKET_NAME=",
 												{
 													"Ref": "S3Bucket"
 												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__SQS_URL=",
+												{
+													"Ref": "SQSQueue"
+												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__APP_URL=",
+												{
+													"Ref": "HostedZoneName"
+												}
+											]
+										]
+									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__SNS_TOPIC=",
+												{ "Ref": "SNSTopic" }
 											]
 										]
 									}, " >> /etc/environment"]]
@@ -1063,7 +1148,7 @@
 					}
 				}
 			},
-			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup"]
+			"DependsOn": ["EC2S3InstanceProfile", "EC2SecurityGroup", "SQSQueue", "SNSTopic"]
 		},
 		"AutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
@@ -1273,7 +1358,11 @@
 				},
 				"RecordSets": [{
 						"Name": {
-							"Ref": "HostedZoneName"
+							"Fn::Sub": ["${HostName}.", {
+								"HostName": {
+									"Ref": "HostedZoneName"
+								}
+							}]
 						},
 						"Type": "A",
 						"AliasTarget": {
@@ -1287,7 +1376,7 @@
 					},
 					{
 						"Name": {
-							"Fn::Sub": ["www.${HostName}", {
+							"Fn::Sub": ["www.${HostName}.", {
 								"HostName": {
 									"Ref": "HostedZoneName"
 								}
@@ -1306,6 +1395,162 @@
 				]
 			},
 			"DependsOn": ["EC2LoadBalancer"]
+		},
+		"SQSQueue" : {
+			"Type" : "AWS::SQS::Queue",
+			"Properties" : {
+				"QueueName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SQSQueueName"
+							}
+						]
+					]
+				}
+			}
+		},
+		"SNSTopic": {
+			"Type" : "AWS::SNS::Topic",
+			"Properties" : {
+				"DisplayName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SNSTopicName"
+							}
+						]
+					]
+				},
+				"Subscription" : [{
+					"Endpoint" : { "Fn::GetAtt" : [ "SendEmailLambdaFunction", "Arn" ] },
+					"Protocol" : "lambda"
+				}],
+				"TopicName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SNSTopicName"
+							}
+						]
+					]
+				}
+			},
+			"DependsOn": ["SendEmailLambdaFunction"]
+		},
+		"LambdaExecutionRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+			  "AssumeRolePolicyDocument": {
+				"Version": "2012-10-17",
+				"Statement": [
+					{ 
+						"Effect": "Allow", 
+						"Principal": {
+							"Service": ["lambda.amazonaws.com"]
+						}, 
+						"Action": ["sts:AssumeRole"] 
+					}
+				]
+			  },
+			  "ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+					"arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+					"arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+					"arn:aws:iam::aws:policy/AmazonSESFullAccess",
+					"arn:aws:iam::aws:policy/AmazonS3FullAccess"
+				]	
+			}
+		},
+		"SendEmailLambdaFunction": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+			  "FunctionName" : {
+				"Fn::Join": [
+					"-",
+						[{
+							"Fn::Sub": "${AWS::StackName}"
+						},
+						{
+							"Ref": "SendEmailFunction"
+						}
+					]
+				]
+				},
+			  "Handler": { "Ref": "EmailLambdaHandler" },
+			  "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
+			  "Code": {
+				"S3Bucket":  { "Ref": "S3CodeDeploy" },
+				"S3Key" :  { "Ref": "EmailLambdaZip" }
+				},
+			  "Runtime": { "Ref": "EmailLambdaRuntime" },
+			  "Environment" : {
+				"Variables" : { 
+					"ddb_table_name": { "Ref" : "DDBTableName" },
+					"ttl" : { "Ref" : "DDBTableTTL"},
+					"source" : {
+						"Fn::Join": [
+							"@",
+								[{
+									"Ref": "SendEmailSource"
+								},
+								{
+									"Ref": "HostedZoneName"
+								}
+							]
+						]
+						}
+				}
+			  }
+			},
+			"DependsOn": ["LambdaExecutionRole"]
+		},
+		"LambdaInvokePermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+			  "Action": "lambda:InvokeFunction",
+			  "Principal": "sns.amazonaws.com",
+			  "SourceArn": { "Ref": "SNSTopic" },
+			  "FunctionName": {
+				"Fn::GetAtt": [ "SendEmailLambdaFunction", "Arn" ]
+			  }
+			},
+			"DependsOn": ["SendEmailLambdaFunction", "SNSTopic"]
+		},
+		"EmailDynamo" :  {
+			"Type" : "AWS::DynamoDB::Table",
+			"Properties" : {
+			  "AttributeDefinitions" : [
+				{
+					"AttributeName" : "email",
+					"AttributeType" : "S"   
+				}
+			  ],
+			  "KeySchema" : [
+				{
+					"AttributeName" : "email",
+					"KeyType" : "HASH"
+				}
+			  ],
+			  "ProvisionedThroughput" : {
+				"ReadCapacityUnits" : "1",
+				"WriteCapacityUnits" : "1"
+			  },
+			  "TimeToLiveSpecification": {
+				"AttributeName": "expires_at",
+				"Enabled": "true"
+			  },
+			  "TableName" : { "Ref": "DDBTableName" }
+			}
 		}
 	},
 	"Outputs": {

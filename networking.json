@@ -198,6 +198,28 @@
 		"HostedZoneName": {
 			"Type": "String",
 			"Default": "sajalsood.me."
+		},
+		"DDBTableName": {
+			"Type": "String",
+			"Default": "DUE_BILL_EMAIL_DB"
+		},
+		"EmailLambdaZip": {
+			"Type": "String",
+			"Default": "sendemail.zip"
+		},
+		"EmailLambdaRuntime": {
+			"Type": "String",
+			"Default": "nodejs12.x"
+		},
+		"EmailLambdaHandler": {
+			"Type": "String",
+			"Default": "index.handler"
+		},
+		"SNSTopicName": {
+			"Type": "String"
+		},
+		"SQSQueueName": {
+			"Type": "String"
 		}
 	},
 	"Resources": {
@@ -575,7 +597,6 @@
 							}
 						]
 					]
-
 				},
 				"MasterUsername": {
 					"Ref": "RDSUser"
@@ -1083,7 +1104,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"AWS__SQSURL=",
+												"AWS__SQS_URL=",
 												{
 													"Ref": "SQSQueue"
 												}
@@ -1095,7 +1116,7 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"AWS__APPURL=",
+												"AWS__APP_URL=",
 												{
 													"Ref": "HostedZoneName"
 												}
@@ -1107,8 +1128,8 @@
 									"Fn::Join": ["", ["echo ", {
 										"Fn::Join": ["",
 											[
-												"AWS__SNS_TOPIC_ARN=",
-												{ "Fn::GetAtt" : [ "SNSTopic", "Arn" ] }
+												"AWS__SNS_TOPIC=",
+												{ "Ref": "SNSTopic" }
 											]
 										]
 									}, " >> /etc/environment"]]
@@ -1365,18 +1386,51 @@
 		"SQSQueue" : {
 			"Type" : "AWS::SQS::Queue",
 			"Properties" : {
-				"QueueName" : "SQSQueue"
+				"QueueName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SQSQueueName"
+							}
+						]
+					]
+				}
 			}
 		},
 		"SNSTopic": {
 			"Type" : "AWS::SNS::Topic",
 			"Properties" : {
-				"DisplayName" : "SNSTopic",
+				"DisplayName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SNSTopicName"
+							}
+						]
+					]
+				},
 				"Subscription" : [{
 					"Endpoint" : { "Fn::GetAtt" : [ "SendEmailLambdaFunction", "Arn" ] },
 					"Protocol" : "lambda"
 				}],
-				"TopicName" : "SNSTopic"
+				"TopicName" : {
+					"Fn::Join": [
+						"-",
+							[{
+								"Fn::Sub": "${AWS::StackName}"
+							},
+							{
+								"Ref": "SNSTopicName"
+							}
+						]
+					]
+				}
 			},
 			"DependsOn": ["SendEmailLambdaFunction"]
 		},
@@ -1405,7 +1459,14 @@
 				  "Statement": [
 					  	{
 						   "Effect": "Allow",
-						   "Action": ["s3:*", "cloudwatch:*", "logs:*", "ses:*","lambda:*","sns:*"],
+						   "Action": [
+							   "s3:*", 
+							   "cloudwatch:*", 
+							   "logs:*", 
+							   "ses:*",
+							   "lambda:*",
+							   "dynamodb:*"
+							],
 						   "Resource": "*" 
 						}
 					]
@@ -1416,13 +1477,13 @@
 		"SendEmailLambdaFunction": {
 			"Type": "AWS::Lambda::Function",
 			"Properties": {
-			  "Handler": "index.handler",
+			  "Handler": { "Ref": "EmailLambdaHandler" },
 			  "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
 			  "Code": {
 				"S3Bucket":  { "Ref": "S3CodeDeploy" },
-				"S3Key" : "sendemail.zip"
+				"S3Key" :  { "Ref": "EmailLambdaZip" }
 				},
-			  "Runtime": "nodejs12.x"
+			  "Runtime": { "Ref": "EmailLambdaRuntime" }
 			},
 			"DependsOn": ["LambdaExecutionRole"]
 		},
@@ -1437,6 +1498,32 @@
 			  }
 			},
 			"DependsOn": ["SendEmailLambdaFunction", "SNSTopic"]
+		},
+		"EmailDynamo" :  {
+			"Type" : "AWS::DynamoDB::Table",
+			"Properties" : {
+			  "AttributeDefinitions" : [
+				{
+					"AttributeName" : "email",
+					"AttributeType" : "S"   
+				}
+			  ],
+			  "KeySchema" : [
+				{
+					"AttributeName" : "email",
+					"KeyType" : "HASH"
+				}
+			  ],
+			  "ProvisionedThroughput" : {
+				"ReadCapacityUnits" : "1",
+				"WriteCapacityUnits" : "1"
+			  },
+			  "TimeToLiveSpecification": {
+				"AttributeName": "expires_at",
+				"Enabled": "true"
+			  },
+			  "TableName" : { "Ref": "DDBTableName" }
+			}
 		}
 	},
 	"Outputs": {

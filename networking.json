@@ -197,7 +197,7 @@
 		},
 		"HostedZoneName": {
 			"Type": "String",
-			"Default": "sajalsood.me."
+			"Default": "dev.sajalsood.me"
 		},
 		"DDBTableName": {
 			"Type": "String",
@@ -1354,7 +1354,11 @@
 			"Type": "AWS::Route53::RecordSetGroup",
 			"Properties": {
 				"HostedZoneName": {
-					"Ref": "HostedZoneName"
+					"Fn::Sub": ["${HostName}.", {
+						"HostName": {
+							"Ref": "HostedZoneName"
+						}
+					}]
 				},
 				"RecordSets": [{
 						"Name": {

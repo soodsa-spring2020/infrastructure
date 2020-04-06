@@ -125,7 +125,7 @@
 		},
 		"WebAppForwardPort": {
 			"Type": "String",
-			"Default": "80"
+			"Default": "443"
 		},
 		"AutoScalePublicIpAddress": {
 			"Type": "String",
@@ -227,8 +227,16 @@
 		"SendEmailFunction" : {
 			"Type" : "String"
 		},
-		"SendEmailSource": {
+		"CertificateCode" : {
 			"Type" : "String"
+		},
+		"RDSEncrypt" : {
+			"Type" : "String",
+			"Default": "true"
+		},
+		"RDSDbSSLMode" : {
+			"Type" : "String",
+			"Default": "VerifyFull"
 		}
 	},
 	"Resources": {
@@ -509,12 +517,6 @@
 					{
 						"CidrIp": "0.0.0.0/0",
 						"IpProtocol": "tcp",
-						"FromPort": 80,
-						"ToPort": 80
-					},
-					{
-						"CidrIp": "0.0.0.0/0",
-						"IpProtocol": "tcp",
 						"FromPort": 443,
 						"ToPort": 443
 					}
@@ -624,6 +626,9 @@
 				}],
 				"PubliclyAccessible": {
 					"Ref": "RDSPubliclyAccessible"
+				},
+				"StorageEncrypted" : {
+					"Ref": "RDSEncrypt"
 				},
 				"Tags": [{
 					"Key": "Name",
@@ -1008,9 +1013,7 @@
 				"Port": {
 					"Ref": "WebAppPort"
 				},
-				"Protocol": {
-					"Ref": "WebAppProtocol"
-				},
+				"Protocol": "HTTP",
 				"VpcId": {
 					"Ref": "ApiVPC"
 				}
@@ -1025,6 +1028,19 @@
 						"Ref": "EC2TargetGroup"
 					},
 					"Type": "forward"
+				}],
+				"Certificates" : [{
+					"CertificateArn" : {
+						"Fn::Sub": ["arn:aws:acm:${Region}:${Account}:certificate/${CertiCode}", {
+							"Region": {
+								"Ref": "RegionCodeDeploy"
+							},
+							"Account": {
+								"Ref": "AccountID"
+							},
+							"CertiCode": { "Ref" : "CertificateCode" }
+						}]
+					}
 				}],
 				"LoadBalancerArn": {
 					"Ref": "EC2LoadBalancer"
@@ -1120,6 +1136,12 @@
 												},
 												";Database=", {
 													"Ref": "RDSDbName"
+												},
+												";TrustServerCertificate=", {
+													"Ref": "RDSEncrypt"
+												},
+												";SslMode=", {
+													"Ref": "RDSDbSSLMode"
 												},
 												";\\\"\""
 											]
@@ -1619,15 +1641,13 @@
 					"source" : {
 						"Fn::Join": [
 							"@",
-								[{
-									"Ref": "SendEmailSource"
-								},
+								["noreply",
 								{
 									"Ref": "HostedZoneName"
 								}
 							]
 						]
-						}
+					}
 				}
 			  }
 			},

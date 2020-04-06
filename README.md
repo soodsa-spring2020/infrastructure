@@ -109,5 +109,12 @@ aws cloudformation --profile <PROFILE_NAME> delete-stack \
   --region <Region> 
 ```
 
+### Create/Update SSL Certificate
+
+#### Generate a Private Key
+```bash
+openssl genrsa 2048 > aws-prod.pem
+```
+
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

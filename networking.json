@@ -1193,6 +1193,16 @@
 											]
 										]
 									}, " >> /etc/environment"]]
+								},
+								{
+									"Fn::Join": ["", ["echo ", {
+										"Fn::Join": ["",
+											[
+												"AWS__PROTOCOL=",
+												{ "Ref": "WebAppProtocol" }
+											]
+										]
+									}, " >> /etc/environment"]]
 								}
 							]
 						]

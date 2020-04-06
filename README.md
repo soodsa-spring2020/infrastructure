@@ -113,8 +113,21 @@ aws cloudformation --profile <PROFILE_NAME> delete-stack \
 
 #### Generate a Private Key
 ```bash
-openssl genrsa 2048 > aws-prod.pem
+openssl genrsa 2048 > privatekey.pem
 ```
 
+#### Request a CSR token
+```bash
+openssl req -new -key privatekey.pem -out csrtoken.pem
+```
+#### Upload the CSR token to get the certificate bundle
+#### Change the crt file to pem file (optional)
+```bash
+openssl x509 -in cert-file.crt -outform PEM -out cert-file.pem
+```
+#### AWS import-certificate
+```bash
+aws --profile prod acm import-certificate --certificate fileb:/cert-file.pem --certificate-chain fileb://cert-chain.ca-bundle --private-key fileb://privatekey.pem
+```
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

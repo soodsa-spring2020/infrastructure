@@ -236,7 +236,7 @@
 		},
 		"RDSDbSSLMode" : {
 			"Type" : "String",
-			"Default": "VerifyFull"
+			"Default": "Require"
 		}
 	},
 	"Resources": {
